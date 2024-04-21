@@ -1,0 +1,35 @@
+{
+  description = "Nithesh's Development Tools";
+
+  inputs = {
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nil.url = "github:oxalica/nil";
+  };
+
+  outputs = inputs @ {flake-parts, ...}:
+    flake-parts.lib.mkFlake {inherit inputs;} {
+      systems = ["x86_64-linux" "aarch64-linux"];
+
+      imports = [
+        ./helix/module.nix
+      ];
+
+      perSystem = {
+        system,
+        pkgs,
+        self',
+        inputs',
+        ...
+      }: {
+        devShells.default = pkgs.mkShell {
+          buildInputs = [
+            self'.packages.helix
+            inputs'.nil.packages.default
+            self'.formatter
+          ];
+        };
+        formatter = pkgs.alejandra;
+      };
+    };
+}
