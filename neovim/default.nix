@@ -18,6 +18,7 @@ makeNixvimWithModule {
       ./toggleterm.nix
       ./treesitter.nix
       ./ui.nix
+      ./utils.nix
     ];
   };
 }
