@@ -1,7 +1,7 @@
 {
   plugins.telescope = {
     enable = true;
-    extensions.file_browser = {
+    extensions.file-browser = {
       enable = true;
     };
     keymaps = {

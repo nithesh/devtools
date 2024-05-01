@@ -1,8 +1,10 @@
 {
   plugins.toggleterm = {
     enable = true;
-    openMapping = "<C-t>";
-    direction = "horizontal";
-    shell = "/usr/bin/env fish";
+    settings = {
+      open_mapping = "[[<c-t]]";
+      direction = "float";
+      shell = "/usr/bin/env fish";
+    };
   };
 }
