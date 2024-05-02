@@ -14,5 +14,38 @@
         "K" = "hover";
       };
     };
+
+    lspsaga = {
+      enable = true;
+      codeAction = {
+        showServerName = true;
+        extendGitSigns = true;
+      };
+      lightbulb = {
+        sign = false;
+      };
+    };
   };
+
+  keymaps = [
+    {
+      mode = "n";
+      key = "<leader>ca";
+      action = "<cmd>Lspsaga code_action<CR>";
+      options = {
+        desc = "Code Action";
+        silent = true;
+      };
+    }
+
+    {
+      mode = "n";
+      key = "<leader>cw";
+      action = "<cmd>Lspsaga outline<CR>";
+      options = {
+        desc = "Outline";
+        silent = true;
+      };
+    }
+  ];
 }
