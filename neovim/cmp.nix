@@ -1,10 +1,19 @@
+{pkgs,...}:
 {
   plugins = {
     luasnip = {
       enable = true;
       extraConfig = {
         enable_autosnippets = true;
+        store_selection_keys = "<Tab>";
       };
+
+      fromVscode = [
+        {
+          lazyLoad = true;
+          paths = "${pkgs.vimPlugins.friendly-snippets}";
+        }
+      ];
     };
 
     cmp = {
@@ -34,5 +43,15 @@
         };
       };
     };
+
+    cmp_luasnip = {
+      enable = true;
+    };
   };
+
+  extraConfigLua = ''
+    local ls = require('luasnip')
+    vim.keymap.set({"i", "s"}, "<Tab>", function() ls.jump( 1) end, {silent = true})
+    vim.keymap.set({"i", "s"}, "<S-Tab>", function() ls.jump(-1) end, {silent = true})
+  '';
 }
