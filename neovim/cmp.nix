@@ -43,10 +43,6 @@
         };
       };
     };
-
-    cmp_luasnip = {
-      enable = true;
-    };
   };
 
   extraConfigLua = ''

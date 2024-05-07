@@ -14,7 +14,7 @@
 
   keymaps = [
     {
-      key = "<leader>cf";
+      key = "<leader>fb";
       action = "<CMD>Telescope file_browser path=%:p:h select_buffer=true<CR>";
     }
   ];

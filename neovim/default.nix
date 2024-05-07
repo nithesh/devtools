@@ -12,6 +12,7 @@ makeNixvimWithModule {
       ./cmp.nix
       ./git.nix
       ./lsp.nix
+      ./none-ls.nix
       ./nvim-tree.nix
       ./options.nix
       ./telescope.nix

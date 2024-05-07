@@ -25,6 +25,8 @@
         sign = false;
       };
     };
+
+    lsp-format.enable = true;
   };
 
   keymaps = [
@@ -44,6 +46,16 @@
       action = "<cmd>Lspsaga outline<CR>";
       options = {
         desc = "Outline";
+        silent = true;
+      };
+    }
+
+    {
+      mode = ["n" "v"];
+      key = "<leader>cf";
+      action = "<cmd>lua vim.lsp.buf.format()<cr>";
+      options = {
+        desc = "Format";
         silent = true;
       };
     }
