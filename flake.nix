@@ -18,6 +18,7 @@
       imports = [
         ./helix/module.nix
         ./neovim/module.nix
+        ./zed/module.nix
       ];
 
       perSystem = {
@@ -30,6 +31,7 @@
         devShells.default = pkgs.mkShell {
           buildInputs = [
             self'.packages.helix
+            self'.packages.zed
             inputs'.nil.packages.default
             self'.formatter
           ];
