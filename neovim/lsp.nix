@@ -17,12 +17,12 @@
 
     lspsaga = {
       enable = true;
-      codeAction = {
-        showServerName = true;
-        extendGitSigns = true;
-      };
-      lightbulb = {
-        sign = false;
+      settings = {
+        codeAction = {
+          showServerName = true;
+          extendGitSigns = true;
+        };
+        lightbulb.sign = false;
       };
     };
 
