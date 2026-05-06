@@ -129,11 +129,7 @@
         description = "Verbose startup (--verbose)";
       };
 
-      blockMutating = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Block mutating commands (install, remove, etc.)";
-      };
+
     };
   };
 

@@ -100,8 +100,9 @@ The HM module writes:
 - exports `PI_CODING_AGENT_DIR = ~/.config/pi/agent`
 - exports `PI_CODING_AGENT_SESSION_DIR = ~/.pi/agent/sessions` (preserves sessions outside XDG)
 
-Because `settings.json` is a store symlink, Pi's mutating commands will fail.
-This is intentional — the config is declarative.
+Because `settings.json` is a store symlink, Pi's mutating commands (like `/model`, `/settings`) 
+will fail with permission errors when trying to write changes. This is intentional — the config is 
+fully declarative and managed by Nix.
 
 ### 2. Flake Module — project overlay
 
@@ -220,7 +221,7 @@ exec /nix/store/...-pi-unwrapped/bin/pi \
 | `appendSystemPrompt` | `nullOr str` | `null` | `--append-system-prompt` (appended to prompt) |
 | `offline` | `bool` | `false` | `--offline` |
 | `verbose` | `bool` | `false` | `--verbose` |
-| `blockMutating` | `bool` | `true` | Block `install/remove/uninstall/update/config` commands |
+
 
 ### Home Manager module (`programs.pi`)
 
@@ -242,11 +243,17 @@ The wrapper and HM module both export `PI_CODING_AGENT_DIR` so Pi discovers the 
 
 Sessions are preserved outside XDG at `~/.pi/agent/sessions/` via `PI_CODING_AGENT_SESSION_DIR`.
 
-### Mutating Commands
+### Mutating Commands and Interactive Configuration
 
-By default, the wrapper blocks `pi install`, `pi remove`, `pi uninstall`, `pi update`, and `pi config`.
-These would write to temporary or immutable state and create confusing UX.
-To manage packages/resources, use your Nix expressions instead.
+With Home Manager-managed immutable configuration, Pi's interactive configuration
+commands (`/model`, `/settings`, `pi config`, etc.) will fail with permission errors
+when trying to write changes to `settings.json`.
+
+This is an intentional trade-off to maintain fully declarative configuration.
+To change settings, edit your Nix expressions and re-apply Home Manager.
+
+For interactive experimentation, use project-level `.pi/settings.json` files
+which take precedence over global HM config.
 
 ### Secrets
 

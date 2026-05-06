@@ -22,7 +22,6 @@
 , appendSystemPrompt ? null
 , offline ? false
 , verbose ? false
-, blockMutating ? true
 }:
 
 let
@@ -70,18 +69,9 @@ pkgs.writeShellScriptBin "pi" ''
   # Preserve sessions in legacy location unless overridden
   export PI_CODING_AGENT_SESSION_DIR="''${PI_CODING_AGENT_SESSION_DIR:-$HOME/.pi/agent/sessions}"
 
-  # Block mutating commands in wrapped mode
-  ${
-    if blockMutating then ''
-  case "$1" in
-    install|remove|uninstall|update|config)
-      echo "error: '$1' is disabled in the wrapped Pi." >&2
-      echo "       Manage resources declaratively in your flake or Home Manager." >&2
-      exit 1
-      ;;
-  esac
-    '' else ""
-  }
+# Note: With Home Manager immutable settings, mutating commands like
+  # "pi config" or "pi install" will fail with permission errors.
+  # This is intentional - manage configuration declaratively via Nix.
 
   # Execute wrapped pi with CLI args
   exec ${pi-unwrapped}/bin/pi ${escapedArgs} "$@"

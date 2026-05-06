@@ -45,7 +45,6 @@
             # provider = "anthropic";
             # piThemes = [ ./path/to/theme.json ];
             # extensions = [ ./path/to/dev-extension.ts ];
-            # blockMutating = true;
           };
         in
         {
