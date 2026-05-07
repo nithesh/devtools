@@ -63,9 +63,6 @@ let
 
 in
 pkgs.writeShellScriptBin "pi" ''
-  # Set agent directory to XDG config path unless already set
-  export PI_CODING_AGENT_DIR="''${PI_CODING_AGENT_DIR:-$HOME/.config/pi/agent}"
-  
   # Preserve sessions in legacy location unless overridden
   export PI_CODING_AGENT_SESSION_DIR="''${PI_CODING_AGENT_SESSION_DIR:-$HOME/.pi/agent/sessions}"
 
