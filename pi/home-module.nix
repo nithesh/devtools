@@ -63,9 +63,14 @@ in {
   config = lib.mkIf cfg.enable {
     home.packages = [cfg.package];
 
-    # Write immutable global config files to XDG directory
-    xdg.configFile."pi/agent/settings.json" = lib.mkIf (cfg.settings != {}) {
-      source = pkgs.writeText "pi-settings.json" (builtins.toJSON cfg.settings);
+    # Write mutable global config file (Pi can modify this)
+    home.file.".pi/agent/settings.json" = lib.mkIf (cfg.settings != {}) {
+      source = pkgs.writeText "pi-settings-hm-intent.json" (builtins.toJSON cfg.settings);
+    };
+
+    # Also write HM intention as reference for drift detection
+    home.file.".pi/agent/settings.json.hm-intent" = lib.mkIf (cfg.settings != {}) {
+      source = pkgs.writeText "pi-settings-hm-intent-ref.json" (builtins.toJSON cfg.settings);
     };
 
     xdg.configFile."pi/agent/AGENTS.md" = lib.mkIf (cfg.agentsMd != null) {
@@ -80,9 +85,23 @@ in {
       text = cfg.appendSystemMd;
     };
 
-    # Export environment variables so Pi discovers the XDG config
+    # Drift detection: warn if user config differs from HM intention
+    home.activation.checkPiConfigDrift = lib.mkIf (cfg.settings != {}) (
+      lib.hm.dag.entryAfter ["writeBoundary"] ''
+        if [[ -f ~/.pi/agent/settings.json ]] && [[ -f ~/.pi/agent/settings.json.hm-intent ]]; then
+          if ! cmp -s ~/.pi/agent/settings.json ~/.pi/agent/settings.json.hm-intent; then
+            echo "NOTE: Pi configuration has user modifications:"
+            echo "      HM baseline: ~/.pi/agent/settings.json.hm-intent"
+            echo "      User config: ~/.pi/agent/settings.json"
+            echo "      Run 'pi /settings' or edit settings.json to modify config."
+          fi
+        fi
+      ''
+    );
+
+    # Export environment variables
     home.sessionVariables = {
-      PI_CODING_AGENT_DIR = "${config.xdg.configHome}/pi/agent";
+      # PI_CODING_AGENT_DIR not set - let Pi use default ~/.pi/agent/
       PI_CODING_AGENT_SESSION_DIR = "${config.home.homeDirectory}/.pi/agent/sessions";
     };
   };

@@ -229,31 +229,44 @@ exec /nix/store/...-pi-unwrapped/bin/pi \
 |--------|------|---------|-------------|
 | `enable` | `bool` | `false` | Enable Pi installation |
 | `package` | `package` | `pi-unwrapped` | Pi package to install |
-| `settings` | `attrs` | `{}` | Global settings.json content |
-| `agentsMd` | `nullOr str` | `null` | Global AGENTS.md content |
-| `systemMd` | `nullOr str` | `null` | Global SYSTEM.md content |
-| `appendSystemMd` | `nullOr str` | `null` | Global APPEND_SYSTEM.md content |
+| `settings` | `attrs` | `{}` | Baseline settings.json content (mutable at runtime) |
+| `agentsMd` | `nullOr str` | `null` | Global AGENTS.md content (immutable) |
+| `systemMd` | `nullOr str` | `null` | Global SYSTEM.md content (immutable) |
+| `appendSystemMd` | `nullOr str` | `null` | Global APPEND_SYSTEM.md content (immutable) |
 
 ## Notes
 
-### XDG Config Directory
+### Config Directory
 
-Pi's default agent directory is `~/.pi/agent`. This module uses XDG (`~/.config/pi/agent`) instead.
-The wrapper and HM module both export `PI_CODING_AGENT_DIR` so Pi discovers the correct path.
+Pi uses `~/.pi/agent/` as its default agent directory. The Home Manager module manages files in this
+location using standard HM patterns:
 
-Sessions are preserved outside XDG at `~/.pi/agent/sessions/` via `PI_CODING_AGENT_SESSION_DIR`.
+- `~/.pi/agent/settings.json` - **Mutable** copy that Pi can modify (`/model`, `/settings` work)
+- `~/.pi/agent/settings.json.hm-intent` - **Immutable** reference to HM intention
+- `~/.pi/agent/AGENTS.md` - Immutable via `xdg.configFile` (users don't modify)
+- `~/.pi/agent/sessions/` - Preserved via `PI_CODING_AGENT_SESSION_DIR`
 
-### Mutating Commands and Interactive Configuration
+No `PI_CODING_AGENT_DIR` override is needed - Pi naturally uses its default path.
 
-With Home Manager-managed immutable configuration, Pi's interactive configuration
-commands (`/model`, `/settings`, `pi config`, etc.) will fail with permission errors
-when trying to write changes to `settings.json`.
+### Interactive Configuration
 
-This is an intentional trade-off to maintain fully declarative configuration.
-To change settings, edit your Nix expressions and re-apply Home Manager.
+Pi's interactive configuration commands (`/model`, `/settings`, etc.) now work perfectly!
 
-For interactive experimentation, use project-level `.pi/settings.json` files
-which take precedence over global HM config.
+The Home Manager module implements a **hybrid approach**:
+
+1. **HM manages the intention** - Your Nix expressions define the baseline config
+2. **Pi manages the reality** - Interactive commands modify the actual config file
+3. **Drift detection** - HM warns if user changes diverge from baseline
+
+Files:
+- `~/.pi/agent/settings.json` - Mutable config file (Pi modifies this)
+- `~/.pi/agent/settings.json.hm-intent` - Immutable HM baseline (for reference)
+
+This gives you the best of both worlds:
+- ✅ Fully working Pi interactive UX (`/model`, `/settings`, etc.)
+- ✅ Declarative HM configuration as baseline
+- ✅ Optional drift detection
+- ✅ Clear separation of concerns
 
 ### Secrets
 
