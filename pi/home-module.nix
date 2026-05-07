@@ -69,8 +69,8 @@ in {
     };
 
     # Also write HM intention as reference for drift detection
-    home.file.".pi/agent/settings.json.hm-intent" = lib.mkIf (cfg.settings != {}) {
-      source = pkgs.writeText "pi-settings-hm-intent-ref.json" (builtins.toJSON cfg.settings);
+    home.file.".pi/agent/settings.hm-base.json" = lib.mkIf (cfg.settings != {}) {
+      source = pkgs.writeText "pi-settings-hm-base.json" (builtins.toJSON cfg.settings);
     };
 
     xdg.configFile."pi/agent/AGENTS.md" = lib.mkIf (cfg.agentsMd != null) {
@@ -88,10 +88,10 @@ in {
     # Drift detection: warn if user config differs from HM intention
     home.activation.checkPiConfigDrift = lib.mkIf (cfg.settings != {}) (
       lib.hm.dag.entryAfter ["writeBoundary"] ''
-        if [[ -f ~/.pi/agent/settings.json ]] && [[ -f ~/.pi/agent/settings.json.hm-intent ]]; then
-          if ! cmp -s ~/.pi/agent/settings.json ~/.pi/agent/settings.json.hm-intent; then
+        if [[ -f ~/.pi/agent/settings.json ]] && [[ -f ~/.pi/agent/settings.hm-base.json ]]; then
+          if ! cmp -s ~/.pi/agent/settings.json ~/.pi/agent/settings.hm-base.json; then
             echo "NOTE: Pi configuration has user modifications:"
-            echo "      HM baseline: ~/.pi/agent/settings.json.hm-intent"
+            echo "      HM baseline: ~/.pi/agent/settings.hm-base.json"
             echo "      User config: ~/.pi/agent/settings.json"
             echo "      Run 'pi /settings' or edit settings.json to modify config."
           fi
