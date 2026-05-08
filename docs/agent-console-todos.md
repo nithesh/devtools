@@ -26,7 +26,7 @@
 ## Phase 4: Pi -> Neovim RPC integration
 - [x] Implement Neovim RPC socket runtime setup via `mktemp -d` runtime dir
 - [x] Export socket env vars
-- [ ] Implement Pi extension tools (`nvim_open_file`, `nvim_show_diff`, `nvim_focus_tree`)
+- [x] Implement Pi extension tools (`nvim_open_file`, `nvim_show_diff`, `nvim_focus_tree`)
 - [ ] Validate end-to-end Pi-driven Neovim actions
 
 ## Phase 5: Stability and docs

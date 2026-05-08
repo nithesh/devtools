@@ -9,6 +9,7 @@
       neovimPackage = config.packages.neovim-agent-console;
       zellijPackage = config.packages.zellij;
       zellijConfigFile = ../zellij/config.kdl;
+      piExtensions = [ ../pi/extensions/agent-console-nvim-rpc.ts ];
     };
   };
 }

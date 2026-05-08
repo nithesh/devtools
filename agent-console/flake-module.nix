@@ -36,6 +36,12 @@
       default = [ ];
     };
 
+    piExtensions = lib.mkOption {
+      type = lib.types.listOf lib.types.path;
+      default = [ ../pi/extensions/agent-console-nvim-rpc.ts ];
+      description = "Pi extension paths loaded by agent-console";
+    };
+
     rightPaneWidth = lib.mkOption {
       type = lib.types.int;
       default = 35;
@@ -68,6 +74,7 @@
           zellijConfigFile
           resumeMode
           piArgs
+          piExtensions
           rightPaneWidth
           startNvimCollapsed
           projectRootMode;

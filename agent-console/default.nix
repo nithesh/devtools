@@ -6,19 +6,25 @@
   zellijConfigFile,
   resumeMode ? "auto",
   piArgs ? [ ],
+  piExtensions ? [ ],
   rightPaneWidth ? 35,
   startNvimCollapsed ? false,
   projectRootMode ? "cwd",
 }:
 let
   lib = pkgs.lib;
-  rightWidth = if startNvimCollapsed then 1 else rightPaneWidth;
+  clampedRightPaneWidth =
+    if rightPaneWidth < 10 then 10
+    else if rightPaneWidth > 80 then 80
+    else rightPaneWidth;
+  rightWidth = if startNvimCollapsed then 1 else clampedRightPaneWidth;
   mainWidth = 100 - rightWidth;
   resumeArgs =
     if resumeMode == "resume" then [ "--resume" ]
     else if resumeMode == "new" then [ "--new" ]
     else [ ];
-  allPiArgs = resumeArgs ++ piArgs;
+  extensionArgs = lib.concatMap (p: [ "--extension" (toString p) ]) piExtensions;
+  allPiArgs = resumeArgs ++ extensionArgs ++ piArgs;
   piCmd = lib.concatStringsSep " " (map lib.escapeShellArg ([ "${piPackage}/bin/pi" ] ++ allPiArgs));
   nvimCmd = "${neovimPackage}/bin/nvim --listen \"$NVIM_LISTEN_ADDRESS\"";
 in
@@ -29,7 +35,10 @@ pkgs.writeShellScriptBin "agent-console" ''
   export AGENT_CONSOLE_RUNTIME_DIR="$RUNTIME_DIR"
   export NVIM_LISTEN_ADDRESS="$RUNTIME_DIR/nvim.sock"
 
-  trap 'rm -rf "$RUNTIME_DIR"' EXIT
+  cleanup() {
+    rm -rf "$RUNTIME_DIR"
+  }
+  trap cleanup EXIT INT TERM
 
   if [ "${projectRootMode}" = "git-root" ] && command -v git >/dev/null 2>&1; then
     root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
