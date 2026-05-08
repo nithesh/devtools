@@ -62,7 +62,7 @@
     in lib.mkIf cfg.enable {
       packages.agent-console = pkgs.callPackage ./default.nix {
         piPackage = if cfg.piPackage != null then cfg.piPackage else config.packages.pi;
-        neovimPackage = if cfg.neovimPackage != null then cfg.neovimPackage else config.packages.neovim;
+        neovimPackage = if cfg.neovimPackage != null then cfg.neovimPackage else config.packages.neovim-agent-console;
         zellijPackage = if cfg.zellijPackage != null then cfg.zellijPackage else config.packages.zellij;
         inherit (cfg)
           zellijConfigFile

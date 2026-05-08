@@ -19,8 +19,8 @@
 - [x] Add config options: resumeMode, piArgs, rightPaneWidth, startNvimCollapsed, projectRootMode
 
 ## Phase 3: Agentic Neovim profile
-- [ ] Add/adjust diffview, lazygit, nvim-tree, telescope config
-- [ ] Keymaps focused on review/navigation
+- [x] Add/adjust diffview, lazygit, nvim-tree, telescope config
+- [x] Keymaps focused on review/navigation
 - [ ] Validate ergonomics in live workflow
 
 ## Phase 4: Pi -> Neovim RPC integration

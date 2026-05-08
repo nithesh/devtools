@@ -6,7 +6,7 @@
   }: {
     packages.agent-console = pkgs.callPackage ./default.nix {
       piPackage = config.packages.pi;
-      neovimPackage = config.packages.neovim;
+      neovimPackage = config.packages.neovim-agent-console;
       zellijPackage = config.packages.zellij;
       zellijConfigFile = ../zellij/config.kdl;
     };
