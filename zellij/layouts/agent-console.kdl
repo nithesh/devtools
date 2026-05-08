@@ -1,0 +1,15 @@
+layout {
+    default_tab_template {
+        pane split_direction="horizontal" {
+            pane size="65%" borderless=true {
+                shell "pi"
+            }
+            pane size="35%" borderless=true {
+                shell "nvim"
+            }
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+}

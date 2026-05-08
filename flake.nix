@@ -24,7 +24,9 @@
         ./helix/module.nix
         ./neovim/module.nix
         ./zed/module.nix
-        ./pi/module.nix  # registers packages.pi-unwrapped and packages.pi (unwrapped)
+        ./zellij/module.nix
+        ./pi/module.nix
+        ./agent-console/module.nix
       ];
 
       perSystem =
@@ -44,7 +46,6 @@
             # model = "anthropic/claude-sonnet-4-20250514";
             # provider = "anthropic";
             # piThemes = [ ./path/to/theme.json ];
-            # extensions = [ ./path/to/dev-extension.ts ];
           };
         in
         {
@@ -52,7 +53,10 @@
             buildInputs = [
               self'.packages.helix
               self'.packages.zed
-              dev-pi  # use our custom wrapped pi in devShell
+              self'.packages.neovim
+              self'.packages.zellij
+              self'.packages.agent-console
+              dev-pi
               inputs'.nil.packages.default
               self'.formatter
             ];
@@ -63,6 +67,7 @@
       flake = {
         homeManagerModules.pi = import ./pi/home-module.nix;
         flakeModules.pi = import ./pi/flake-module.nix;
+        flakeModules.agent-console = import ./agent-console/flake-module.nix;
       };
     };
 }
