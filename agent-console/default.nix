@@ -26,7 +26,7 @@ let
   extensionArgs = lib.concatMap (p: [ "--extension" (toString p) ]) piExtensions;
   allPiArgs = resumeArgs ++ extensionArgs ++ piArgs;
   piCmd = lib.concatStringsSep " " (map lib.escapeShellArg ([ "${piPackage}/bin/pi" ] ++ allPiArgs));
-  nvimCmd = "${neovimPackage}/bin/nvim --listen \"$NVIM_LISTEN_ADDRESS\"";
+  nvimBin = "${neovimPackage}/bin/nvim";
 in
 pkgs.writeShellScriptBin "agent-console" ''
   set -euo pipefail
@@ -55,9 +55,9 @@ layout {
                 args "${piCmd}"
             }
             pane size="${toString rightWidth}%" borderless=true {
-                command "sh"
-                args "-lc"
-                args "${nvimCmd}"
+                command "${nvimBin}"
+                args "--listen"
+                args "$NVIM_LISTEN_ADDRESS"
             }
         }
         pane size=1 borderless=true {
