@@ -22,7 +22,7 @@ let
   resumeArgs =
     if resumeMode == "resume" then [ "--resume" ]
     else if resumeMode == "new" then [ "--new" ]
-    else [ ];
+    else [ "--continue" ];
   extensionArgs = lib.concatMap (p: [ "--extension" (toString p) ]) piExtensions;
   allPiArgs = resumeArgs ++ extensionArgs ++ piArgs;
   piBin = "${piPackage}/bin/pi";
@@ -52,18 +52,16 @@ pkgs.writeShellScriptBin "agent-console" ''
 
   cat > "$RUNTIME_DIR/layout.kdl" <<KDL
 layout {
-    default_tab_template {
-        pane split_direction="horizontal" {
-            pane size="${toString mainWidth}%" borderless=true start_suspended=false command="${piBin}" {
-                args ${piArgsInline}
-            }
-            pane size="${toString rightWidth}%" borderless=true start_suspended=false command="${nvimBin}" {
-                args "--listen" "$NVIM_LISTEN_ADDRESS"
-            }
+    pane split_direction="vertical" {
+        pane size="${toString mainWidth}%" borderless=true command="${piBin}" {
+            args ${piArgsInline}
         }
-        pane size=1 borderless=true {
-            plugin location="zellij:status-bar"
+        pane size="${toString rightWidth}%" borderless=true command="${nvimBin}" {
+            args "--listen" "$NVIM_LISTEN_ADDRESS"
         }
+    }
+    pane size=1 borderless=true {
+        plugin location="zellij:status-bar"
     }
 }
 KDL

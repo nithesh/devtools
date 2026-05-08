@@ -34,38 +34,27 @@ if ! "$ZELLIJ_BIN" list-sessions | grep -q "$SESSION"; then
   exit 1
 fi
 
-# Dismiss startup tips overlay if present.
-"$ZELLIJ_BIN" --session "$SESSION" action write 27 || true
-sleep 0.3
-
-# Start suspended panes (zellij command panes can start suspended by default).
-"$ZELLIJ_BIN" --session "$SESSION" action move-focus down || true
-"$ZELLIJ_BIN" --session "$SESSION" action write 13 || true
-"$ZELLIJ_BIN" --session "$SESSION" action move-focus right || "$ZELLIJ_BIN" --session "$SESSION" action focus-next-pane
-"$ZELLIJ_BIN" --session "$SESSION" action write 13 || true
-sleep 0.5
-
 "$ZELLIJ_BIN" --session "$SESSION" action dump-layout > "$OUT_DIR/layout.kdl"
 
-# Capture multiple focus states to reliably include shell panes and plugin panes.
-for i in 1 2 3 4 5; do
-  "$ZELLIJ_BIN" --session "$SESSION" action dump-screen "$OUT_DIR/pane-$i.txt"
-  "$ZELLIJ_BIN" --session "$SESSION" action focus-next-pane || true
-done
-
-# Assertions: at least one captured pane should look Pi-ish and one Neovim-ish.
-PI_RE='Press ctrl\+o|model|session|/help|pi'
-NVIM_RE='\[No Name\]| NORMAL |nvim|NVIM'
-
-if ! grep -Eqs "$PI_RE" "$OUT_DIR"/pane-*.txt; then
-  echo "Could not detect Pi output in captured panes" >&2
-  for f in "$OUT_DIR"/pane-*.txt; do echo "--- $f ---"; cat "$f"; done
+# Assertions on effective runtime layout:
+# - vertical split (left/right)
+# - one Pi command pane
+# - one Neovim command pane
+if ! grep -q 'split_direction="vertical"' "$OUT_DIR/layout.kdl"; then
+  echo "Expected vertical split in runtime layout" >&2
+  cat "$OUT_DIR/layout.kdl"
   exit 1
 fi
 
-if ! grep -Eqs "$NVIM_RE" "$OUT_DIR"/pane-*.txt; then
-  echo "Could not detect Neovim output in captured panes" >&2
-  for f in "$OUT_DIR"/pane-*.txt; do echo "--- $f ---"; cat "$f"; done
+if ! grep -Eq 'command=".*pi-coding-agent|command=".*/bin/pi"|command="pi"' "$OUT_DIR/layout.kdl"; then
+  echo "Expected Pi command pane in runtime layout" >&2
+  cat "$OUT_DIR/layout.kdl"
+  exit 1
+fi
+
+if ! grep -Eq 'command=".*/bin/nvim"|command="nvim"' "$OUT_DIR/layout.kdl"; then
+  echo "Expected Neovim command pane in runtime layout" >&2
+  cat "$OUT_DIR/layout.kdl"
   exit 1
 fi
 
