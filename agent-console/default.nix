@@ -25,11 +25,16 @@ let
     else [ ];
   extensionArgs = lib.concatMap (p: [ "--extension" (toString p) ]) piExtensions;
   allPiArgs = resumeArgs ++ extensionArgs ++ piArgs;
-  piCmd = lib.concatStringsSep " " (map lib.escapeShellArg ([ "${piPackage}/bin/pi" ] ++ allPiArgs));
+  piBin = "${piPackage}/bin/pi";
+  escapeKdl = s: lib.replaceStrings [ "\\" "\"" ] [ "\\\\" "\\\"" ] s;
+  quoteKdl = s: "\"${escapeKdl s}\"";
+  piArgsInline = lib.concatStringsSep " " (map quoteKdl allPiArgs);
   nvimBin = "${neovimPackage}/bin/nvim";
 in
 pkgs.writeShellScriptBin "agent-console" ''
   set -euo pipefail
+
+  SESSION_NAME="''${AGENT_CONSOLE_SESSION:-agent-console-$(date +%s)}"
 
   RUNTIME_DIR="$(mktemp -d /tmp/agent-console.XXXXXX)"
   export AGENT_CONSOLE_RUNTIME_DIR="$RUNTIME_DIR"
@@ -49,15 +54,11 @@ pkgs.writeShellScriptBin "agent-console" ''
 layout {
     default_tab_template {
         pane split_direction="horizontal" {
-            pane size="${toString mainWidth}%" borderless=true {
-                command "sh"
-                args "-lc"
-                args "${piCmd}"
+            pane size="${toString mainWidth}%" borderless=true start_suspended=false command="${piBin}" {
+                args ${piArgsInline}
             }
-            pane size="${toString rightWidth}%" borderless=true {
-                command "${nvimBin}"
-                args "--listen"
-                args "$NVIM_LISTEN_ADDRESS"
+            pane size="${toString rightWidth}%" borderless=true start_suspended=false command="${nvimBin}" {
+                args "--listen" "$NVIM_LISTEN_ADDRESS"
             }
         }
         pane size=1 borderless=true {
@@ -67,5 +68,5 @@ layout {
 }
 KDL
 
-  exec ${zellijPackage}/bin/zellij --config ${zellijConfigFile} --layout "$RUNTIME_DIR/layout.kdl"
+  exec ${zellijPackage}/bin/zellij --session "$SESSION_NAME" --config ${zellijConfigFile} --new-session-with-layout "$RUNTIME_DIR/layout.kdl" "$@"
 ''
