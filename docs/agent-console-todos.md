@@ -30,10 +30,10 @@
 - [ ] Validate end-to-end Pi-driven Neovim actions
 
 ## Phase 5: Stability and docs
-- [ ] Add error handling/timeouts in RPC calls
-- [ ] Handle restart/disconnect cases gracefully
-- [ ] Document usage (`agent-console`, keymaps, expected workflow)
-- [ ] Add troubleshooting section
+- [x] Add error handling/timeouts in RPC calls
+- [x] Handle restart/disconnect cases gracefully
+- [x] Document usage (`agent-console`, keymaps, expected workflow)
+- [x] Add troubleshooting section
 
 ## Stretch
 - [ ] Left sidebar sessions plugin
