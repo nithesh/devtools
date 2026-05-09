@@ -29,20 +29,19 @@
 - [x] Implement Pi extension tools (`nvim_open_file`, `nvim_show_diff`, `nvim_focus_tree`)
 - [ ] Validate end-to-end Pi-driven Neovim actions
 
-## Phase 4.5: Review mode orchestration
+## Phase 4.5: Review/context orchestration
 - [ ] Design `agent_console_start_review` tool schema
 - [ ] Implement `agent_console_start_review` as the preferred workflow-level tool
-- [ ] Make normal layout Pi-only/fullscreen with Neovim hidden
-- [ ] Keep Neovim available for instant review activation, preferably hidden rather than absent
-- [ ] Switch Zellij to review layout from that single tool call
-- [ ] Hide Pi pane entirely in review layout
-- [ ] Open target file/diff in Neovim as part of review startup
-- [ ] Add user-controlled keybinding to restore normal layout and focus Pi
-- [ ] Add keybindings for focus Pi, focus Neovim, toggle review layout, and toggle Neovim tree/sidebar
+- [ ] Start in Pi fullscreen with Neovim hidden by default
+- [ ] Keep Neovim process alive for instant reveal
+- [ ] Reveal Neovim and show target file/diff from a single tool call
+- [ ] Ensure post-review focus to Pi keeps split mode visible (context preserved)
+- [ ] Add keybindings for focus Pi, focus Neovim, toggle Pi fullscreen, and toggle Neovim tree/sidebar
+- [ ] Optionally add Neovim fullscreen toggle while preserving split as the steady state
 - [ ] Audit proposed keybindings against Zellij defaults and Neovim mappings
 - [ ] Ensure `Ctrl-g` is not used because it conflicts with Zellij lock mode
-- [ ] Make review keybindings configurable
-- [ ] Add agent-console system prompt guidance for deterministic review mode usage
+- [ ] Make keybindings configurable
+- [ ] Add agent-console system prompt guidance for deterministic review/context usage
 - [ ] Ensure the agent does not need to infer review completion after starting review
 
 ## Phase 5: Stability and docs
@@ -53,5 +52,5 @@
 
 ## Stretch
 - [ ] Left sidebar sessions plugin
-- [ ] Multi-tab multi-agent session orchestration
+- [ ] Multi-tab multi-agent/session orchestration (one workspace per tab)
 - [ ] Status pane with session metadata
