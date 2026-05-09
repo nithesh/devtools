@@ -5,8 +5,8 @@ SESSION="agent-console-smoke-$(date +%s)"
 OUT_DIR="/tmp/$SESSION"
 mkdir -p "$OUT_DIR"
 
-AGENT_CONSOLE_BIN="$(nix build .#agent-console --print-out-paths --no-link)/bin/agent-console"
-ZELLIJ_BIN="$(nix build .#zellij --print-out-paths --no-link)/bin/zellij"
+AGENT_CONSOLE_BIN="${AGENT_CONSOLE_BIN:-$(nix build .#agent-console --print-out-paths --no-link)/bin/agent-console}"
+ZELLIJ_BIN="${ZELLIJ_BIN:-$(nix build .#zellij --print-out-paths --no-link)/bin/zellij}"
 
 # Launch in a PTY so zellij can start in CI/headless environments.
 AGENT_CONSOLE_SESSION="$SESSION" timeout 20s \
@@ -57,6 +57,12 @@ if ! grep -Eq 'command=".*/bin/nvim"|command="nvim"' "$OUT_DIR/layout.kdl"; then
   cat "$OUT_DIR/layout.kdl"
   exit 1
 fi
+
+# Ensure key layout actions are callable in the session.
+"$ZELLIJ_BIN" --session "$SESSION" action move-focus right
+"$ZELLIJ_BIN" --session "$SESSION" action move-focus left
+"$ZELLIJ_BIN" --session "$SESSION" action toggle-fullscreen
+"$ZELLIJ_BIN" --session "$SESSION" action toggle-fullscreen
 
 echo "agent-console smoke test passed"
 echo "artifacts: $OUT_DIR"

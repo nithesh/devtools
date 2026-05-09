@@ -49,7 +49,13 @@
 
     startNvimCollapsed = lib.mkOption {
       type = lib.types.bool;
-      default = false;
+      default = true;
+    };
+
+    appendAgentConsoleSystemPrompt = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Append agent-console workflow prompt when launching Pi";
     };
 
     projectRootMode = lib.mkOption {
@@ -81,7 +87,8 @@
           piExtensions
           rightPaneWidth
           startNvimCollapsed
-          projectRootMode;
+          projectRootMode
+          appendAgentConsoleSystemPrompt;
       };
     };
   };

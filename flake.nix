@@ -61,6 +61,25 @@
               self'.formatter
             ];
           };
+
+          checks = {
+            agent-console-behavior = pkgs.runCommand "agent-console-behavior-test" {
+              nativeBuildInputs = [ pkgs.bash pkgs.gnugrep pkgs.coreutils ];
+              AGENT_CONSOLE_BIN = "${self'.packages.agent-console}/bin/agent-console";
+            } ''
+              ${pkgs.bash}/bin/bash ${./tests/agent-console-behavior.sh}
+              touch "$out"
+            '';
+
+            agent-console-extension = pkgs.runCommand "agent-console-extension-test" {
+              nativeBuildInputs = [ pkgs.bash pkgs.gnugrep pkgs.coreutils ];
+              EXT_PATH = "${./agent-console/extensions/nvim-rpc.ts}";
+            } ''
+              ${pkgs.bash}/bin/bash ${./tests/agent-console-extension-test.sh}
+              touch "$out"
+            '';
+          };
+
           formatter = pkgs.alejandra;
         };
 
