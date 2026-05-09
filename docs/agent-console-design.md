@@ -32,18 +32,28 @@ This setup should prioritize:
 ## UX Model
 
 ## Workspace layout (Zellij)
-- Left pane: **Pi session** (main chat / tool execution)
-- Right pane: **Neovim review workspace**
-- Bottom compact bar/pane (optional in v1): status + quick controls
+- **Normal mode**:
+  - Pi occupies the full useful workspace.
+  - Neovim is not visible by default.
+  - Neovim may still be running in a hidden/fullscreen-obscured pane so review mode can appear instantly.
+  - Bottom compact bar/pane (optional in v1): status + quick controls.
+- **Review mode**:
+  - Neovim occupies the full useful workspace.
+  - The Pi pane is hidden entirely, not merely shrunk.
+  - Zellij should make it visually obvious that the user is reviewing in Neovim and how to return to Pi.
 
 ## Interaction model
-- Pi does analysis and proposes edits
+- Pi does analysis and proposes edits.
 - Neovim is optimized for:
   - viewing diffs
   - scanning file tree
   - lazygit operations
   - quick search/jump
-- Human approves/rejects through Neovim + Git
+- Human approves/rejects through Neovim + Git.
+- Agent-driven UI changes should be workflow-level and deterministic:
+  - The agent may make one explicit tool call to start a review.
+  - After review starts, the user controls when to leave review mode through Zellij keybindings.
+  - The agent should not infer that review is complete from timing, focus changes, or silence.
 
 ## Session model
 - One Zellij tab == one "agent workspace"
@@ -76,7 +86,7 @@ Pi extension sends commands to Neovim through RPC-compatible invocation.
 ## MVP Core
 1. **Output package command `agent-console`** (from this repo) launches Zellij workspace
 2. **Main pane runs Pi** with new/resume behavior via Pi CLI args
-3. **Right collapsible pane runs Neovim** (agentic review profile)
+3. **Hidden/non-visible Neovim pane runs Neovim** (agentic review profile) for instant review-mode activation
 4. **No sidebar plugin** in MVP
 5. **Pi -> Neovim integration** via Neovim RPC socket remains in scope (can be incremental after launcher/layout works)
 
@@ -84,6 +94,39 @@ Pi extension sends commands to Neovim through RPC-compatible invocation.
 - Multi-agent tabs with naming convention
 - Session status bar (active model, branch, dirty state)
 - Quick command palette for common workflows
+
+## Review Mode UX
+
+Review mode is the main agent-console workflow abstraction.
+
+Lifecycle:
+
+```text
+normal layout: Pi full workspace, Neovim hidden
+  ↓ agent calls agent_console_start_review(...)
+review layout: Neovim full workspace, Pi hidden
+  ↓ user presses configured Zellij return keybinding
+normal layout: Pi full workspace, Pi focused
+```
+
+Important constraints:
+- Entering review mode is agent-initiated with one tool call.
+- Leaving review mode is user-initiated with a Zellij keybinding.
+- No accept/reject hotkeys are required for now.
+- No agent inference is required beyond deciding to start review.
+- The agent should tell the user what was opened and which keybinding returns to Pi.
+
+Initial keybinding candidates, subject to live conflict testing:
+- return to Pi / normal layout
+- focus Pi
+- focus Neovim
+- toggle review layout manually
+- toggle Neovim tree/sidebar
+
+Keybinding requirements:
+- Must not conflict with Zellij defaults or Neovim mappings.
+- Must not use `Ctrl-g` because Zellij uses it for lock mode.
+- Should be configurable from the agent-console launcher/module.
 
 ---
 
@@ -105,30 +148,49 @@ Key capabilities:
 
 ## Pi Extension Responsibilities
 
-- Expose explicit tools for Neovim orchestration:
-  - `nvim_open_file`
-  - `nvim_show_diff`
-  - `nvim_focus_tree`
-- Call Neovim through RPC socket-targeted commands
-- Validate responses and return structured errors
+Prefer workflow-level tools over low-level editor/layout manipulation.
+
+Primary planned tool:
+- `agent_console_start_review`
+  - Opens the relevant file or diff in Neovim.
+  - Switches Zellij into review mode.
+  - Hides the Pi pane entirely.
+  - Displays or communicates concise return instructions to the user.
+  - Returns after initiating review; it does not wait for or infer review completion.
+
+Lower-level implementation tools may still exist internally or for debugging:
+- `nvim_open_file`
+- `nvim_show_diff`
+- `nvim_focus_tree`
+
+The system prompt should guide the agent to use `agent_console_start_review` when the human needs to inspect code, then stop manipulating the UI until the user responds.
 
 ---
 
 ## Zellij Responsibilities
 
-- Deterministic startup layout
-- Main Pi pane + right collapsible Neovim pane
-- Export shared env vars used by both panes (including Neovim socket path)
-- Optional workspace metadata (tab name, project path)
+- Deterministic startup layout.
+- Normal mode: Pi full workspace; Neovim hidden/non-visible.
+- Review mode: Neovim full workspace; Pi pane hidden entirely.
+- Export shared env vars used by both panes (including Neovim socket path).
+- Optional workspace metadata (tab name, project path).
+- Own the review lifecycle after the agent starts it:
+  - restore normal layout
+  - focus Pi
+  - optionally show status/help text
+- Provide conflict-audited keybindings. Do not use `Ctrl-g`, because it conflicts with Zellij lock mode.
 
 ---
 
 ## Success Criteria
 
 1. `agent-console` command opens reproducible workspace every time.
-2. From Pi, invoking integration tools visibly drives Neovim actions.
-3. Developer can do review/apply loops primarily via diffs + lazygit.
-4. Setup is declarative in this repo and easy to extend.
+2. From Pi, invoking review integration visibly switches to Neovim review mode.
+3. Normal mode hides Neovim and makes Pi the full work surface.
+4. Review mode hides the Pi pane entirely and makes Neovim the full review surface.
+5. A user keybinding restores the normal layout and focuses Pi without requiring agent inference.
+6. Developer can do review/apply loops primarily via diffs + lazygit.
+7. Setup is declarative in this repo and easy to extend.
 
 ---
 
@@ -148,6 +210,14 @@ Config surface (MVP):
 - `rightPaneWidth`
 - `startNvimCollapsed`
 - `projectRootMode` (`cwd|git-root`)
+
+Planned review-mode config surface:
+- `reviewReturnKeybinding`
+- `focusPiKeybinding`
+- `focusNvimKeybinding`
+- `toggleReviewKeybinding`
+- `toggleTreeKeybinding`
+- `appendAgentConsoleSystemPrompt` or equivalent system-prompt injection
 
 Approval workflow in MVP:
 - Approve/apply through Git/lazygit

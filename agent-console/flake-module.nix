@@ -38,7 +38,7 @@
 
     piExtensions = lib.mkOption {
       type = lib.types.listOf lib.types.path;
-      default = [ ../pi/extensions/agent-console-nvim-rpc.ts ];
+      default = [ ./extensions/nvim-rpc.ts ];
       description = "Pi extension paths loaded by agent-console";
     };
 
@@ -62,13 +62,17 @@
     perSystem = {
       config,
       pkgs,
+      inputs',
       ...
     }: let
       cfg = config.devtools.agent-console;
     in lib.mkIf cfg.enable {
       packages.agent-console = pkgs.callPackage ./default.nix {
         piPackage = if cfg.piPackage != null then cfg.piPackage else config.packages.pi;
-        neovimPackage = if cfg.neovimPackage != null then cfg.neovimPackage else config.packages.neovim-agent-console;
+        neovimPackage = if cfg.neovimPackage != null then cfg.neovimPackage else pkgs.callPackage ../neovim/default.nix {
+          inherit (inputs'.nixvim.legacyPackages) makeNixvimWithModule;
+          module = ./neovim.nix;
+        };
         zellijPackage = if cfg.zellijPackage != null then cfg.zellijPackage else config.packages.zellij;
         inherit (cfg)
           zellijConfigFile

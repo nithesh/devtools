@@ -1,5 +1,7 @@
 # agent-console
 
+`agent-console` owns all cross-tool integration (Pi + Neovim + Zellij).
+
 `agent-console` launches a zellij workspace with:
 - main pane: Pi
 - right pane: Neovim (`--listen $NVIM_LISTEN_ADDRESS`)

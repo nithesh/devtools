@@ -148,11 +148,24 @@ nix run .#pi
 │   ├── module.nix         # Flake-parts module
 │   ├── default.nix        # Package builder
 │   └── settings.nix       # Zed configuration
-└── pi/
+├── pi/
+│   ├── module.nix         # Flake-parts module
+│   ├── home-module.nix    # Home Manager module
+│   └── default.nix        # Package builder
+└── agent-console/
     ├── module.nix         # Flake-parts module
-    ├── home-module.nix    # Home Manager module
-    └── default.nix        # Package builder
+    ├── flake-module.nix   # Optional configurable module
+    ├── default.nix        # Launcher package builder
+    └── ...
 ```
+
+### Separation of concerns
+
+- `pi/` contains only generic Pi packaging/configuration.
+- `neovim/` contains only generic Neovim configuration.
+- `zellij/` contains only generic Zellij packaging/configuration.
+- `agent-console/` contains all Pi↔Neovim↔Zellij integration logic.
+
 
 ## Customization
 

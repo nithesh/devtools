@@ -2,6 +2,8 @@
 
 Declarative, multi-layer configuration for the [Pi](https://github.com/badlogic/pi-mono) AI coding agent.
 
+> Scope note: this module is intentionally generic. Agent-console-specific integrations (custom Pi extensions, cross-tool orchestration) live under `agent-console/`.
+
 ## Design Principles
 
 1. **Immutable global config**: Home Manager owns the user's baseline. Pi's self-mutation commands (`install`, `remove`, `config`, `update`) are not used; all changes go through Nix.
