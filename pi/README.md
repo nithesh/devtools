@@ -6,10 +6,10 @@ Declarative, multi-layer configuration for the [Pi](https://github.com/badlogic/
 
 ## Design Principles
 
-1. **Immutable global config**: Home Manager owns the user's baseline. Pi's self-mutation commands (`install`, `remove`, `config`, `update`) are not used; all changes go through Nix.
+1. **Declarative baseline + mutable runtime**: Home Manager owns the baseline, while Pi can persist interactive changes (`/model`, `/settings`) to a mutable local file.
 2. **Project overlays**: A per-project wrapper (via flake module) layers additional model, resource, and prompt overrides on top of the global baseline.
 3. **No temp directories**: The wrapper uses Pi's native CLI args and environment variables. No config merging, no JSON rewriting, no ephemeral state.
-4. **XDG compliance**: Global config lives under `~/.config/pi/agent/` (not `~/.pi/agent/`).
+4. **Pi-native paths**: Global config lives under Pi's default `~/.pi/agent/`.
 
 ## Architecture
 
@@ -22,15 +22,14 @@ Layer 2 ──► packages.${system}.pi (flake module wrapper)
   Used in project devShells.
 
 Layer 3 ──► programs.pi (Home Manager module)
-  Installs pi-unwrapped and writes immutable global config files.
-  Exports env vars so Pi discovers the XDG config path.
+  Installs pi-unwrapped, writes immutable HM baseline, and activation-manages mutable runtime config.
 ```
 
 ## Config Precedence (low → high)
 
 ```
 1. Pi defaults
-2. Home Manager global config    (~/.config/pi/agent/settings.json)
+2. Home Manager global baseline  (~/.pi/agent/settings.hm-base.json)
 3. Project .pi/settings.json     (if present in cwd; Pi native override)
 4. Flake module CLI overrides    (--model, --extension, --skill, etc.)
 5. Explicit CLI / env vars       (user types them at shell)
@@ -96,15 +95,19 @@ programs.pi = {
 };
 ```
 
-The HM module writes:
-- `~/.config/pi/agent/settings.json` (immutable symlink to store)
+The HM module writes/manages:
+- `~/.pi/agent/settings.hm-base.json` (immutable HM baseline symlink)
+- `~/.pi/agent/settings.hm-last-applied-base.json` (last applied HM baseline for 3-way merge)
+- `~/.pi/agent/settings.json` (mutable live config used by Pi)
 - `~/.config/pi/agent/AGENTS.md`
-- exports `PI_CODING_AGENT_DIR = ~/.config/pi/agent`
-- exports `PI_CODING_AGENT_SESSION_DIR = ~/.pi/agent/sessions` (preserves sessions outside XDG)
+- exports `PI_CODING_AGENT_SESSION_DIR = ~/.pi/agent/sessions`
 
-Because `settings.json` is a store symlink, Pi's mutating commands (like `/model`, `/settings`) 
-will fail with permission errors when trying to write changes. This is intentional — the config is 
-fully declarative and managed by Nix.
+On activation, HM:
+- seeds `settings.json` from `settings.hm-base.json` if missing
+- performs deterministic JSON 3-way merge when HM baseline changes
+- writes `~/.pi/agent/settings.merge-conflicts.json` if conflicts are detected
+
+So Pi mutating commands like `/model` and `/settings` persist normally.
 
 ### 2. Flake Module — project overlay
 
@@ -154,7 +157,6 @@ Example of what the wrapper script generates:
 
 ```bash
 #!/bin/sh
-export PI_CODING_AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.config/pi/agent}"
 export PI_CODING_AGENT_SESSION_DIR="${PI_CODING_AGENT_SESSION_DIR:-$HOME/.pi/agent/sessions}"
 
 # Block mutating commands
@@ -244,7 +246,7 @@ Pi uses `~/.pi/agent/` as its default agent directory. The Home Manager module m
 location using standard HM patterns:
 
 - `~/.pi/agent/settings.json` - **Mutable** copy that Pi can modify (`/model`, `/settings` work)
-- `~/.pi/agent/settings.json.hm-intent` - **Immutable** reference to HM intention
+- `~/.pi/agent/settings.hm-base.json` - **Immutable** HM baseline
 - `~/.pi/agent/AGENTS.md` - Immutable via `xdg.configFile` (users don't modify)
 - `~/.pi/agent/sessions/` - Preserved via `PI_CODING_AGENT_SESSION_DIR`
 
@@ -262,13 +264,30 @@ The Home Manager module implements a **hybrid approach**:
 
 Files:
 - `~/.pi/agent/settings.json` - Mutable config file (Pi modifies this)
-- `~/.pi/agent/settings.json.hm-intent` - Immutable HM baseline (for reference)
+- `~/.pi/agent/settings.hm-base.json` - Immutable HM baseline
+- `~/.pi/agent/settings.hm-last-applied-base.json` - Last applied HM baseline for 3-way merge
+- `~/.pi/agent/settings.merge-conflicts.json` - Conflict report (only when merge conflicts occur)
 
 This gives you the best of both worlds:
 - ✅ Fully working Pi interactive UX (`/model`, `/settings`, etc.)
-- ✅ Declarative HM configuration as baseline
-- ✅ Optional drift detection
-- ✅ Clear separation of concerns
+- ✅ Declarative HM baseline
+- ✅ Deterministic baseline adoption via 3-way merge
+- ✅ Conflict visibility without clobbering user edits
+
+### Conflict recovery workflow
+
+If Home Manager baseline updates conflict with local user edits, activation keeps
+`~/.pi/agent/settings.json` unchanged and writes
+`~/.pi/agent/settings.merge-conflicts.json`.
+
+Recommended recovery path:
+
+1. Inspect conflicts:
+   - `~/.pi/agent/settings.merge-conflicts.json`
+2. Merge desired values into:
+   - `~/.pi/agent/settings.json`
+3. Re-run Home Manager activation (`home-manager switch`) to verify clean state.
+4. When no conflicts remain, the conflict report is removed automatically on next successful merge.
 
 ### Secrets
 
