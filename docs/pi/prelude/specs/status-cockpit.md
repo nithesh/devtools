@@ -21,22 +21,24 @@ Out of scope:
 
 - Replace built-in footer presentation with `ctx.ui.setFooter(...)` from extension.
 - Treat cockpit as the single source of truth for runtime/status presentation.
-- If custom footer API is unavailable in a mode/client, gracefully fall back to status-line chips (`ctx.ui.setStatus`) with compact formatting.
+- Cockpit is explicitly targeted at **interactive TUI mode** (terminal UI).
+- RPC mode and other non-interactive/client-driven presentations are out of scope for this spec.
 
 ## Layout model
 
-## Default (normal/wide width): 2 rows
+## Default (normal/wide width): 2 rows, operator-first
 
-Row 1 (identity/focus):
+Row 1 (identity/focus + right edge):
 - mode chip (accent)
 - git branch chip (+ dirty marker)
-- optional task chip (if available later)
+- model chip
+- right edge: extension statuses from `footerData.getExtensionStatuses()` (compact, muted)
 
 Row 2 (runtime/resources):
-- model chip
 - thinking chip
-- context block (sparkline + absolute + percent)
+- context block (progress bar + absolute + percent)
 - cost chip
+- sparkline (only when width allows)
 
 ## Narrow behavior
 
@@ -51,7 +53,8 @@ Priority (highest to lowest):
 4. model
 5. thinking
 6. cost
-7. sparkline
+7. extension status summary
+8. sparkline
 
 ## Visual style
 
@@ -63,10 +66,11 @@ Priority (highest to lowest):
 - Keep non-critical chips muted for calm baseline.
 
 Example (wide):
-` mode:build  •  git:main*  •  model:sonnet-4-5  •  think:high  •  ctx ▁▂▃▅▆ 124k/200k 62%  •  $0.42 `
+Row1: ` mode:build  •  git:main*  •  model:sonnet-4-5                                 •  ask:ready todo:2 `
+Row2: ` think:high  •  ctx ██████░░░░ 124k/200k 62%  •  $0.42  •  ▁▂▃▅▆▆▇ `
 
 Example (narrow):
-` m:build • g:main* • ctx 124k 62% • $0.42 `
+` m:build • g:main* • ctx ███░░░ 124k 62% • $0.42 `
 
 ## Context + threshold policy
 
@@ -90,8 +94,9 @@ Required:
 - git branch + dirty marker
 - model
 - thinking level
-- context usage (`used/max` and `%`)
+- context usage (progress bar + `used/max` and `%`)
 - cumulative cost
+- compact extension status summary on row 1 right edge (if present)
 
 Optional future:
 - task summary
@@ -108,13 +113,13 @@ Optional future:
 
 ## Acceptance criteria
 
-1. Cockpit replaces built-in footer in supported interactive clients.
-2. Default cockpit renders as 2 rows with capsule-chip style.
-3. Narrow fallback preserves readability and priority ordering.
-4. Context threshold colors follow the policy above.
-5. Sparkline appears only when space permits.
-6. Cockpit remains stable (low flicker) during normal interaction.
-7. Unsupported footer environments fall back to compact status-line chips.
+1. Cockpit replaces built-in footer in interactive clients.
+2. Default cockpit renders as 2 rows with capsule-chip style and operator-first ordering.
+3. Row 1 includes extension status summary at right edge when available.
+4. Narrow fallback preserves readability and priority ordering.
+5. Context threshold colors follow the policy above.
+6. Sparkline appears only when space permits and drops first.
+7. Cockpit remains stable (low flicker) during normal interaction.
 
 ## Test plan
 
