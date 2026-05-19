@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { Editor, Key, matchesKey, truncateToWidth } from "@mariozechner/pi-tui";
 import { Type } from "typebox";
 
 interface QuestionOption {
@@ -67,10 +68,7 @@ export default function toolsAsk(pi: ExtensionAPI) {
     parameters: ParamsSchema,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (!ctx.hasUI) {
-        return errorResult("Error: ask_user requires interactive mode.");
-      }
-
+      if (!ctx.hasUI) return errorResult("Error: ask_user requires interactive mode.");
       if (!params.questions || params.questions.length === 0) {
         return errorResult("Error: questions must contain at least one question.");
       }
@@ -81,91 +79,259 @@ export default function toolsAsk(pi: ExtensionAPI) {
         allowOther: q.allowOther !== false,
       }));
 
-      const answers = new Map<string, Answer>();
-      let i = 0;
-
-      while (true) {
-        const q = questions[i];
-        if (!q.options || q.options.length === 0) {
-          return errorResult(`Error: question '${q.id}' has no options.`, questions);
-        }
-
-        const optionLabels = q.options.map((opt, idx) => `${idx + 1}. ${opt.label}`);
-        const otherLabel = "Other (type custom answer)";
-        const prevLabel = "← Previous question";
-        const nextLabel = "→ Next question";
-        const submitLabel = "✓ Submit answers";
-
-        const selectItems = [
-          ...optionLabels,
-          ...(q.allowOther ? [otherLabel] : []),
-          ...(i > 0 ? [prevLabel] : []),
-          ...(i < questions.length - 1 ? [nextLabel] : []),
-          submitLabel,
-        ];
-
-        const answeredCount = Array.from(answers.keys()).length;
-        const picked = await ctx.ui.select(
-          `${q.label} (${i + 1}/${questions.length}, answered ${answeredCount}/${questions.length}): ${q.prompt}`,
-          selectItems,
-        );
-
-        if (!picked) {
-          return {
-            content: [{ type: "text", text: "User cancelled question flow." }],
-            details: { questions, answers: Array.from(answers.values()), cancelled: true } satisfies AskDetails,
-          };
-        }
-
-        if (picked === prevLabel) {
-          i = Math.max(0, i - 1);
-          continue;
-        }
-
-        if (picked === nextLabel) {
-          i = Math.min(questions.length - 1, i + 1);
-          continue;
-        }
-
-        if (picked === submitLabel) {
-          const finalized = Array.from(answers.values());
-          const lines = finalized.length
-            ? finalized.map((a) =>
-                a.wasCustom ? `${a.id}: user wrote '${a.label}'` : `${a.id}: user selected ${a.index}. ${a.label}`,
-              )
-            : ["No answers provided."];
-
-          return {
-            content: [{ type: "text", text: lines.join("\n") }],
-            details: { questions, answers: finalized, cancelled: false } satisfies AskDetails,
-          };
-        }
-
-        if (picked === otherLabel) {
-          const custom = await ctx.ui.input(`${q.label}: Enter custom answer`);
-          if (custom === null) continue;
-          const value = custom.trim() || "(empty)";
-          answers.set(q.id, { id: q.id, value, label: value, wasCustom: true });
-          if (i < questions.length - 1) i += 1;
-          continue;
-        }
-
-        const index = optionLabels.indexOf(picked);
-        const selected = q.options[index];
-        if (index < 0 || !selected) {
-          return errorResult(`Error: invalid selection for question '${q.id}'.`, questions);
-        }
-
-        answers.set(q.id, {
-          id: q.id,
-          value: selected.value,
-          label: selected.label,
-          wasCustom: false,
-          index: index + 1,
-        });
-
-        if (i < questions.length - 1) i += 1;
+      for (const q of questions) {
+        if (!q.options || q.options.length === 0) return errorResult(`Error: question '${q.id}' has no options.`, questions);
       }
+
+      const result = await ctx.ui.custom<AskDetails>((tui, theme, _kb, done) => {
+        const answers = new Map<string, Answer>();
+        let qIndex = 0;
+        let optionIndex = 0;
+        let inputMode = false;
+        let confirmCancel = false;
+        let confirmPartial = false;
+        let confirmChoice = 1; // 0 submit partial, 1 go back
+
+        const editor = new Editor(tui, {
+          borderColor: (s) => theme.fg("accent", s),
+          selectList: {
+            selectedPrefix: (t) => theme.fg("accent", t),
+            selectedText: (t) => theme.fg("accent", t),
+            description: (t) => theme.fg("muted", t),
+            scrollInfo: (t) => theme.fg("dim", t),
+            noMatch: (t) => theme.fg("warning", t),
+          },
+        });
+        editor.setText(answers.get(questions[qIndex].id)?.wasCustom ? answers.get(questions[qIndex].id)?.value ?? "" : "");
+
+        const getOptions = (idx: number) => {
+          const q = questions[idx];
+          return [...q.options.map((o) => ({ ...o, isOther: false })), ...(q.allowOther ? [{ value: "__other__", label: "Other", isOther: true }] : [])];
+        };
+
+        const submit = (cancelled: boolean) => {
+          done({ questions, answers: Array.from(answers.values()), cancelled });
+        };
+
+        const unanswered = () => questions.filter((q) => !answers.has(q.id));
+
+        const maybeSubmit = () => {
+          if (unanswered().length === 0) return submit(false);
+          confirmPartial = true;
+          confirmChoice = 1;
+        };
+
+        const handleInput = (data: string) => {
+          const options = getOptions(qIndex);
+          const q = questions[qIndex];
+
+          if (confirmCancel) {
+            if (matchesKey(data, Key.left) || matchesKey(data, Key.right) || matchesKey(data, Key.tab) || matchesKey(data, Key.shift("tab"))) {
+              confirmChoice = confirmChoice === 0 ? 1 : 0;
+              tui.requestRender();
+              return;
+            }
+            if (matchesKey(data, Key.enter)) {
+              if (confirmChoice === 0) submit(true);
+              else confirmCancel = false;
+              tui.requestRender();
+              return;
+            }
+            return;
+          }
+
+          if (confirmPartial) {
+            if (matchesKey(data, Key.left) || matchesKey(data, Key.right) || matchesKey(data, Key.tab) || matchesKey(data, Key.shift("tab"))) {
+              confirmChoice = confirmChoice === 0 ? 1 : 0;
+              tui.requestRender();
+              return;
+            }
+            if (matchesKey(data, Key.enter)) {
+              if (confirmChoice === 0) submit(false);
+              else confirmPartial = false;
+              tui.requestRender();
+              return;
+            }
+            if (matchesKey(data, Key.escape)) {
+              confirmPartial = false;
+              tui.requestRender();
+            }
+            return;
+          }
+
+          if (inputMode) {
+            if (matchesKey(data, Key.escape)) {
+              inputMode = false;
+              tui.requestRender();
+              return;
+            }
+            editor.handleInput(data);
+            if (matchesKey(data, Key.enter)) {
+              const value = editor.getText().trim() || "(empty)";
+              answers.set(q.id, { id: q.id, value, label: value, wasCustom: true });
+              inputMode = false;
+              if (qIndex < questions.length - 1) qIndex += 1;
+              optionIndex = 0;
+            }
+            tui.requestRender();
+            return;
+          }
+
+          if (matchesKey(data, Key.up)) {
+            optionIndex = Math.max(0, optionIndex - 1);
+            tui.requestRender();
+            return;
+          }
+
+          if (matchesKey(data, Key.down)) {
+            optionIndex = Math.min(options.length - 1, optionIndex + 1);
+            tui.requestRender();
+            return;
+          }
+
+          if (matchesKey(data, Key.left) || matchesKey(data, Key.shift("tab"))) {
+            qIndex = (qIndex - 1 + questions.length) % questions.length;
+            optionIndex = 0;
+            editor.setText(answers.get(questions[qIndex].id)?.wasCustom ? answers.get(questions[qIndex].id)?.value ?? "" : "");
+            tui.requestRender();
+            return;
+          }
+
+          if (matchesKey(data, Key.right) || matchesKey(data, Key.tab)) {
+            qIndex = (qIndex + 1) % questions.length;
+            optionIndex = 0;
+            editor.setText(answers.get(questions[qIndex].id)?.wasCustom ? answers.get(questions[qIndex].id)?.value ?? "" : "");
+            tui.requestRender();
+            return;
+          }
+
+          if (matchesKey(data, Key.ctrl("enter"))) {
+            maybeSubmit();
+            tui.requestRender();
+            return;
+          }
+
+          if (matchesKey(data, Key.escape)) {
+            if (answers.size > 0) {
+              confirmCancel = true;
+              confirmChoice = 1;
+            } else {
+              submit(true);
+            }
+            tui.requestRender();
+            return;
+          }
+
+          if (matchesKey(data, Key.enter)) {
+            const selected = options[optionIndex];
+            if (!selected) return;
+            if (selected.isOther) {
+              inputMode = true;
+              editor.setText(answers.get(q.id)?.wasCustom ? answers.get(q.id)?.value ?? "" : "");
+              tui.requestRender();
+              return;
+            }
+
+            answers.set(q.id, {
+              id: q.id,
+              value: selected.value,
+              label: selected.label,
+              wasCustom: false,
+              index: optionIndex + 1,
+            });
+            if (qIndex < questions.length - 1) qIndex += 1;
+            optionIndex = 0;
+            editor.setText(answers.get(questions[qIndex].id)?.wasCustom ? answers.get(questions[qIndex].id)?.value ?? "" : "");
+            tui.requestRender();
+          }
+        };
+
+        return {
+          handleInput,
+          invalidate() {},
+          render(width: number) {
+            const q = questions[qIndex];
+            const opts = getOptions(qIndex);
+            const lines: string[] = [];
+
+            const tabs = questions
+              .map((qq, idx) => {
+                const active = idx === qIndex;
+                const answered = answers.has(qq.id) ? "●" : "○";
+                const base = `${answered} ${qq.label}`;
+                return active ? theme.bg("selectedBg", theme.fg("text", ` ${base} `)) : theme.fg("muted", ` ${base} `);
+              })
+              .join(" ");
+
+            lines.push(truncateToWidth(tabs, width));
+            lines.push("");
+            lines.push(truncateToWidth(theme.fg("text", `${q.label}: ${q.prompt}`), width));
+            lines.push("");
+
+            opts.forEach((opt, idx) => {
+              const selected = idx === optionIndex;
+              const prefix = selected ? theme.fg("accent", "> ") : "  ";
+              const label = opt.isOther ? "Other (type custom answer)" : `${idx + 1}. ${opt.label}`;
+              lines.push(truncateToWidth(prefix + (selected ? theme.fg("accent", label) : label), width));
+              if (!opt.isOther && opt.description) lines.push(truncateToWidth(`    ${theme.fg("muted", opt.description)}`, width));
+            });
+
+            if (inputMode) {
+              lines.push("");
+              lines.push(theme.fg("muted", "Custom answer:"));
+              for (const line of editor.render(Math.max(10, width - 2))) lines.push(truncateToWidth(` ${line}`, width));
+            }
+
+            lines.push("");
+            lines.push(theme.fg("muted", "Answers:"));
+            if (answers.size === 0) {
+              lines.push(theme.fg("dim", "  (none yet)"));
+            } else {
+              for (const ans of answers.values()) {
+                const text = ans.wasCustom ? `${ans.id}: (custom) ${ans.label}` : `${ans.id}: ${ans.label}`;
+                lines.push(truncateToWidth(`  ${text}`, width));
+              }
+            }
+
+            if (confirmPartial) {
+              const missing = unanswered().map((qq) => qq.label).join(", ");
+              const left = confirmChoice === 0 ? theme.bg("selectedBg", " Submit partial ") : " Submit partial ";
+              const right = confirmChoice === 1 ? theme.bg("selectedBg", " Go back ") : " Go back ";
+              lines.push("");
+              lines.push(theme.fg("warning", `Unanswered: ${missing}`));
+              lines.push(`${left}  ${right}`);
+            }
+
+            if (confirmCancel) {
+              const left = confirmChoice === 0 ? theme.bg("selectedBg", " Cancel flow ") : " Cancel flow ";
+              const right = confirmChoice === 1 ? theme.bg("selectedBg", " Continue ") : " Continue ";
+              lines.push("");
+              lines.push(theme.fg("warning", "Cancel and discard current questionnaire?"));
+              lines.push(`${left}  ${right}`);
+            }
+
+            lines.push("");
+            lines.push(
+              theme.fg(
+                "dim",
+                "↑↓ option • ←/→ or Tab nav • Enter select • Ctrl+Enter submit • Esc cancel",
+              ),
+            );
+            return lines.map((l) => truncateToWidth(l, width));
+          },
+        };
+      });
+
+      const lines = result.answers.length
+        ? result.answers.map((a) =>
+            a.wasCustom ? `${a.id}: user wrote '${a.label}'` : `${a.id}: user selected ${a.index}. ${a.label}`,
+          )
+        : [result.cancelled ? "User cancelled question flow." : "No answers provided."];
+
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+        details: result,
+      };
     },
   });
 }
