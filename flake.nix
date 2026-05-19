@@ -68,6 +68,15 @@
           checks = {
             pi-prelude-build = self'.packages.pi-prelude;
 
+            pi-prelude-wiring = pkgs.runCommand "pi-prelude-wiring-test" {
+              nativeBuildInputs = [ pkgs.bash pkgs.gnugrep pkgs.coreutils ];
+              PI_PRELUDE_BIN = "${self'.packages.pi-prelude}/bin/pi";
+              PI_PRELUDE_PACKAGE_DIR = "${self'.packages.pi-prelude-package}";
+            } ''
+              ${pkgs.bash}/bin/bash ${./tests/pi-prelude-wiring-test.sh}
+              touch "$out"
+            '';
+
             agent-console-behavior = pkgs.runCommand "agent-console-behavior-test" {
               nativeBuildInputs = [ pkgs.bash pkgs.gnugrep pkgs.coreutils ];
               AGENT_CONSOLE_BIN = "${self'.packages.agent-console}/bin/agent-console";
