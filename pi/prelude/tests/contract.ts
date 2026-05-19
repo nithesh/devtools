@@ -1,0 +1,55 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+function fail(message: string): never {
+  console.error(`FAIL: ${message}`);
+  process.exit(1);
+}
+
+function checkFile(path: string): void {
+  if (!existsSync(path)) fail(`missing file: ${path}`);
+  if (!statSync(path).isFile()) fail(`not a file: ${path}`);
+}
+
+const preludeBin = process.env.PI_PRELUDE_BIN;
+const preludeDir = process.env.PI_PRELUDE_PACKAGE_DIR;
+
+if (!preludeBin) fail("PI_PRELUDE_BIN is required");
+if (!preludeDir) fail("PI_PRELUDE_PACKAGE_DIR is required");
+
+checkFile(preludeBin);
+
+if (!existsSync(preludeDir) || !statSync(preludeDir).isDirectory()) {
+  fail(`prelude package dir missing: ${preludeDir}`);
+}
+
+const wrapper = readFileSync(preludeBin, "utf8");
+if (!wrapper.includes("--extension")) fail("wrapper missing --extension flag");
+if (!wrapper.includes(preludeDir)) fail("wrapper does not reference packaged prelude path");
+
+const requiredFiles = [
+  "package.json",
+  "extensions/mode.ts",
+  "extensions/status.ts",
+  "extensions/tools-ask.ts",
+  "extensions/tools-todo.ts",
+  "extensions/tools-web.ts",
+];
+
+for (const rel of requiredFiles) checkFile(join(preludeDir, rel));
+
+const toolsAsk = readFileSync(join(preludeDir, "extensions/tools-ask.ts"), "utf8");
+if (!toolsAsk.includes('name: "ask_user"')) fail("tools-ask.ts missing ask_user tool registration");
+
+const toolsTodo = readFileSync(join(preludeDir, "extensions/tools-todo.ts"), "utf8");
+if (!toolsTodo.includes('name: "todo"')) fail("tools-todo.ts missing todo tool registration");
+
+const toolsWeb = readFileSync(join(preludeDir, "extensions/tools-web.ts"), "utf8");
+if (!toolsWeb.includes('name: "web_search"')) fail("tools-web.ts missing web_search tool registration");
+if (!toolsWeb.includes('name: "web_fetch"')) fail("tools-web.ts missing web_fetch tool registration");
+if (!toolsWeb.includes("BRAVE_API_KEY")) fail("tools-web.ts missing Brave key integration");
+
+const mode = readFileSync(join(preludeDir, "extensions/mode.ts"), "utf8");
+if (!mode.includes('registerCommand("mode"')) fail("mode.ts missing /mode command registration");
+
+console.log("pi.prelude contract check passed");

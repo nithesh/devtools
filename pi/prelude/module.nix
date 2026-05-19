@@ -6,6 +6,12 @@ in
   options.devtools.pi.prelude = {
     enable = lib.mkEnableOption "pi-prelude wrapped Pi package";
 
+    checks.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable pi-prelude check derivations.";
+    };
+
     package = lib.mkOption {
       type = lib.types.nullOr lib.types.package;
       default = null;
@@ -44,6 +50,19 @@ in
             }
             // cfg.extraArgs
           );
+        }
+        // lib.optionalAttrs cfg.checks.enable {
+          checks.pi-prelude-build = config.packages.pi-prelude;
+
+          checks.pi-prelude-contract = pkgs.runCommand "pi-prelude-contract-test" {
+            nativeBuildInputs = [ pkgs.bun ];
+            PI_PRELUDE_BIN = "${config.packages.pi-prelude}/bin/pi";
+            PI_PRELUDE_PACKAGE_DIR = "${config.packages.pi-prelude-package}";
+            TEST_SCRIPT = "${./tests/contract.ts}";
+          } ''
+            bun "$TEST_SCRIPT"
+            touch "$out"
+          '';
         }
       );
   };
