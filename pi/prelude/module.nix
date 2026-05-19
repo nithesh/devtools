@@ -80,6 +80,15 @@ in
             bun "$TEST_SCRIPT"
             touch "$out"
           '';
+
+          checks.pi-prelude-ask-isolation = pkgs.runCommand "pi-prelude-ask-isolation-test" {
+            nativeBuildInputs = [ pkgs.bun ];
+            TEST_SCRIPT = "${./tests/ask-isolation.test.ts}";
+            ASK_SOURCE_PATH = "${./extensions/tools-ask.ts}";
+          } ''
+            bun "$TEST_SCRIPT"
+            touch "$out"
+          '';
         }
       );
   };
