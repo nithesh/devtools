@@ -40,16 +40,26 @@ for (const rel of requiredFiles) checkFile(join(preludeDir, rel));
 
 const toolsAsk = readFileSync(join(preludeDir, "extensions/tools-ask.ts"), "utf8");
 if (!toolsAsk.includes('name: "ask_user"')) fail("tools-ask.ts missing ask_user tool registration");
+if (!toolsAsk.includes("requires interactive mode")) fail("tools-ask.ts missing non-interactive error contract");
+if (!toolsAsk.includes("partial")) fail("tools-ask.ts missing partial-submit UX contract markers");
 
 const toolsTodo = readFileSync(join(preludeDir, "extensions/tools-todo.ts"), "utf8");
 if (!toolsTodo.includes('name: "todo"')) fail("tools-todo.ts missing todo tool registration");
+for (const action of ["list", "add", "update", "done", "clear"]) {
+  if (!toolsTodo.includes(`"${action}"`)) fail(`tools-todo.ts missing '${action}' action`);
+}
 
 const toolsWeb = readFileSync(join(preludeDir, "extensions/tools-web.ts"), "utf8");
 if (!toolsWeb.includes('name: "web_search"')) fail("tools-web.ts missing web_search tool registration");
 if (!toolsWeb.includes('name: "web_fetch"')) fail("tools-web.ts missing web_fetch tool registration");
 if (!toolsWeb.includes("BRAVE_API_KEY")) fail("tools-web.ts missing Brave key integration");
+if (!toolsWeb.includes("ddgr")) fail("tools-web.ts missing ddgr fallback contract");
+if (!toolsWeb.includes("truncateBytes")) fail("tools-web.ts missing truncation helper contract");
 
 const mode = readFileSync(join(preludeDir, "extensions/mode.ts"), "utf8");
 if (!mode.includes('registerCommand("mode"')) fail("mode.ts missing /mode command registration");
+for (const hotkey of ["ctrl+alt+u", "ctrl+alt+p", "ctrl+alt+r", "ctrl+alt+d"]) {
+  if (!mode.includes(hotkey)) fail(`mode.ts missing '${hotkey}' hotkey contract`);
+}
 
 console.log("pi.prelude contract check passed");
