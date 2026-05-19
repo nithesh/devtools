@@ -165,14 +165,16 @@ export default function toolsAsk(pi: ExtensionAPI) {
               tui.requestRender();
               return;
             }
-            editor.handleInput(data);
             if (matchesKey(data, Key.enter)) {
               const value = editor.getText().trim() || "(empty)";
               answers.set(q.id, { id: q.id, value, label: value, wasCustom: true });
               inputMode = false;
               if (qIndex < questions.length - 1) qIndex += 1;
               optionIndex = 0;
+              tui.requestRender();
+              return;
             }
+            editor.handleInput(data);
             tui.requestRender();
             return;
           }
@@ -268,18 +270,25 @@ export default function toolsAsk(pi: ExtensionAPI) {
             lines.push(truncateToWidth(theme.fg("text", `${q.label}: ${q.prompt}`), width));
             lines.push("");
 
+            const currentCustom = answers.get(q.id)?.wasCustom ? answers.get(q.id)?.value : undefined;
+
             opts.forEach((opt, idx) => {
               const selected = idx === optionIndex;
               const prefix = selected ? theme.fg("accent", "> ") : "  ";
-              const label = opt.isOther ? "Other (type custom answer)" : `${idx + 1}. ${opt.label}`;
-              lines.push(truncateToWidth(prefix + (selected ? theme.fg("accent", label) : label), width));
+              const label = opt.isOther
+                ? currentCustom
+                  ? `Other: ${currentCustom}`
+                  : "Other (type custom answer)"
+                : `${idx + 1}. ${opt.label}`;
+              const styled = selected ? theme.fg("accent", label) : label;
+              lines.push(truncateToWidth(prefix + styled, width));
               if (!opt.isOther && opt.description) lines.push(truncateToWidth(`    ${theme.fg("muted", opt.description)}`, width));
             });
 
             if (inputMode) {
               lines.push("");
-              lines.push(theme.fg("muted", "Custom answer:"));
-              for (const line of editor.render(Math.max(10, width - 2))) lines.push(truncateToWidth(` ${line}`, width));
+              lines.push(truncateToWidth(theme.fg("muted", "Editing Other inline. Enter to save, Esc to cancel."), width));
+              lines.push(truncateToWidth(`  ${theme.fg("accent", editor.getText() || "")}`, width));
             }
 
             lines.push("");
@@ -288,7 +297,8 @@ export default function toolsAsk(pi: ExtensionAPI) {
               lines.push(theme.fg("dim", "  (none yet)"));
             } else {
               for (const ans of answers.values()) {
-                const text = ans.wasCustom ? `${ans.id}: (custom) ${ans.label}` : `${ans.id}: ${ans.label}`;
+                const qLabel = questions.find((qq) => qq.id === ans.id)?.label ?? ans.id;
+                const text = ans.wasCustom ? `${qLabel}: (custom) ${ans.label}` : `${qLabel}: ${ans.label}`;
                 lines.push(truncateToWidth(`  ${text}`, width));
               }
             }
@@ -323,9 +333,12 @@ export default function toolsAsk(pi: ExtensionAPI) {
       });
 
       const lines = result.answers.length
-        ? result.answers.map((a) =>
-            a.wasCustom ? `${a.id}: user wrote '${a.label}'` : `${a.id}: user selected ${a.index}. ${a.label}`,
-          )
+        ? result.answers.map((a) => {
+            const qLabel = questions.find((q) => q.id === a.id)?.label ?? a.id;
+            return a.wasCustom
+              ? `${qLabel}: user wrote '${a.label}'`
+              : `${qLabel}: user selected ${a.index}. ${a.label}`;
+          })
         : [result.cancelled ? "User cancelled question flow." : "No answers provided."];
 
       return {
