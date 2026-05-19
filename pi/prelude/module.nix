@@ -89,6 +89,15 @@ in
             bun "$TEST_SCRIPT"
             touch "$out"
           '';
+
+          checks.pi-prelude-guardrails-isolation = pkgs.runCommand "pi-prelude-guardrails-isolation-test" {
+            nativeBuildInputs = [ pkgs.bun ];
+            TEST_SCRIPT = "${./tests/guardrails-isolation.test.ts}";
+            GUARDRAILS_SOURCE_PATH = "${./extensions/guardrails.ts}";
+          } ''
+            bun "$TEST_SCRIPT"
+            touch "$out"
+          '';
         }
       );
   };
