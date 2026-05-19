@@ -281,7 +281,6 @@ Resolved:
 
 Still open:
 1. Web backend order/fallbacks and required runtime deps in Nix
-2. Protected path defaults and project overrides
 
 ---
 

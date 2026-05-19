@@ -68,6 +68,41 @@ Pattern semantics (gitignore-like):
 - Patterns without leading `/` are matched relative to current working path.
 - `.env.example` and `.envrc` are explicitly allowed by default.
 
+Reference config shape:
+```json
+{
+  "protectedReadPatterns": [
+    "/.env",
+    "**/id_rsa",
+    "**/id_ed25519",
+    "**/*.pem",
+    "**/*.key",
+    "**/*.p12",
+    "**/*.pfx",
+    "**/.aws/credentials",
+    "**/.npmrc",
+    "**/.docker/config.json"
+  ],
+  "allowReadPatterns": ["/.env.example", "/.envrc"],
+  "protectedWritePatterns": [
+    "/.env",
+    "/.git/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.next/**",
+    "**/target/**"
+  ],
+  "allowWritePatterns": [],
+  "dangerously_allow": { "exact": [], "prefix": [] },
+  "always_block": { "exact": ["rm -rf /"], "prefix": ["mkfs", "dd if="] },
+  "confirm": {
+    "exact": ["git reset --hard", "git clean -fd"],
+    "prefix": ["rm -rf", "sudo", "chmod -r", "npm publish", "gh release", "docker push", "kubectl delete"]
+  }
+}
+```
+
 ## 2) Dangerous bash policy
 
 Detect dangerous command patterns (substring/regex):
@@ -134,7 +169,7 @@ No noisy prompts for low-risk actions.
 - Use `getAgentDir()` from `@mariozechner/pi-coding-agent` for user-level path.
 - Do **not** hardcode `~/.pi/agent` or rely on `$HOME` directly.
 - Discover project config by walking parent dirs from `ctx.cwd` (nearest `.pi/prelude/guardrails.json`).
-- Optionally stop upward traversal at git root.
+- Stop upward traversal at git root.
 
 ## Test plan
 
@@ -144,9 +179,11 @@ Automated (contract level):
 - verify dangerous command patterns are present
 
 Manual smoke:
-1. ask model to read `.env` → expect block
-2. ask model to edit `.env` → expect block
-3. ask model to run `rm -rf ./tmp` → expect confirm
-4. decline confirm → expect blocked reason
-5. run benign `ls`/`grep` → no prompt
-6. add override config and retest behavior
+1. ask model to read `./.env` at repo root → expect block
+2. ask model to read nested `apps/x/.env` → allowed by default (root-anchored `/.env` only)
+3. ask model to read `./.env.example` and `./.envrc` → allowed
+4. ask model to edit `.env` → expect block
+5. ask model to run `rm -rf ./tmp` → expect confirm
+6. decline confirm → expect blocked reason
+7. run benign `ls`/`grep` → no prompt
+8. add override config and retest behavior
