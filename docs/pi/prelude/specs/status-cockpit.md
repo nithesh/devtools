@@ -111,6 +111,12 @@ Optional future:
 - mode status updates (via existing mode extension status key)
 - agent lifecycle updates when needed for visual freshness (without noisy flicker)
 
+## Resilience requirements
+
+- Footer rendering errors must not break session usability.
+- On footer failure, extension must fall back to compact `setStatus` output and notify once.
+- Errors should be contained to the extension (no startup/session-blocking behavior).
+
 ## Acceptance criteria
 
 1. Cockpit replaces built-in footer in interactive clients.
@@ -120,6 +126,7 @@ Optional future:
 5. Context threshold colors follow the policy above.
 6. Sparkline appears only when space permits and drops first.
 7. Cockpit remains stable (low flicker) during normal interaction.
+8. Footer failures degrade to fallback status without blocking Pi usage.
 
 ## Test plan
 

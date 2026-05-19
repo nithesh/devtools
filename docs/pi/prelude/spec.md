@@ -59,6 +59,8 @@
    - Each extension delivered in small vertical slices.
 7. **Composable with existing repo modules**
    - Must not break `pi`, `agent-console`, or devShell ergonomics.
+8. **Extension fault isolation**
+   - Extension runtime failures must degrade gracefully (fallback behavior + notification), and must not block opening/using Pi.
 
 ---
 

@@ -5,29 +5,23 @@ import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 const SPARK = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
 
-function sparkline(values: number[], width = 12): string {
+function sparkline(values: number[], width = 10): string {
   const tail = values.slice(-width);
   const chars = tail.map((v) => {
     const idx = Math.max(0, Math.min(SPARK.length - 1, Math.floor(v * SPARK.length)));
     return SPARK[idx];
   });
-
-  if (chars.length < width) {
-    return `${"▁".repeat(width - chars.length)}${chars.join("")}`;
-  }
-
-  return chars.join("");
+  return `${"▁".repeat(Math.max(0, width - chars.length))}${chars.join("")}`;
 }
 
 function fmtK(n: number): string {
   return n < 1000 ? `${n}` : `${(n / 1000).toFixed(0)}k`;
 }
 
-function progressBar(percent: number, width = 12): string {
+function progressBar(percent: number, width = 10): string {
   const p = Math.max(0, Math.min(100, percent));
   const filled = Math.round((p / 100) * width);
-  const empty = Math.max(0, width - filled);
-  return `${"█".repeat(filled)}${"░".repeat(empty)}`;
+  return `${"█".repeat(filled)}${"░".repeat(Math.max(0, width - filled))}`;
 }
 
 function getMode(ctx: ExtensionContext): string {
@@ -60,98 +54,126 @@ function getCost(ctx: ExtensionContext): number {
 }
 
 export default function statusExtension(pi: ExtensionAPI) {
-  const ctxHistory: number[] = [];
-  let state: "idle" | "working" = "idle";
+  const history: number[] = [];
+  let footerDisabled = false;
+  let errorNotified = false;
 
-  const updateFallback = (ctx: ExtensionContext) => {
-    const model = ctx.model?.id ?? "no-model";
+  const fallbackStatus = (ctx: ExtensionContext, used: number, max: number, pct: number) => {
     const mode = getMode(ctx);
-    const usage = ctx.getContextUsage();
-    const used = usage?.tokens ?? 0;
-    const max = usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
-    const pct = usage?.percent != null ? Math.round(usage.percent) : max > 0 ? Math.round((used / max) * 100) : 0;
-    ctx.ui.setStatus("pi.prelude.cockpit", `m:${mode} • mdl:${model} • ctx:${fmtK(used)} ${pct}%`);
+    const model = ctx.model?.id ?? "no-model";
+    ctx.ui.setStatus("pi.prelude.cockpit", `m:${mode} • mdl:${model} • ctx:${fmtK(used)}/${fmtK(max)} ${pct}%`);
+  };
+
+  const disableFooter = (ctx: ExtensionContext, reason: string) => {
+    footerDisabled = true;
+    ctx.ui.setFooter(undefined);
+    if (!errorNotified) {
+      errorNotified = true;
+      ctx.ui.notify(`Cockpit footer disabled: ${reason}`, "warning");
+    }
   };
 
   const update = (ctx: ExtensionContext) => {
     const usage = ctx.getContextUsage();
     const used = usage?.tokens ?? 0;
     const max = usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
-    const pctNow = usage?.percent != null ? usage.percent : max > 0 ? (used / max) * 100 : 0;
-    const ratio = Math.max(0, Math.min(1, pctNow / 100));
-    ctxHistory.push(Math.max(0, Math.min(1, ratio)));
-    if (ctxHistory.length > 12) ctxHistory.shift();
+    const pct = usage?.percent != null ? Math.round(usage.percent) : max > 0 ? Math.round((used / max) * 100) : 0;
+    const ratio = Math.max(0, Math.min(1, pct / 100));
+
+    history.push(ratio);
+    if (history.length > 12) history.shift();
 
     const mode = getMode(ctx);
     const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "no-model";
     const think = pi.getThinkingLevel();
     const cost = getCost(ctx);
 
-    ctx.ui.setFooter((tui, theme, footerData) => {
+    fallbackStatus(ctx, used, max, pct);
+
+    if (footerDisabled) return;
+
+    try {
+      ctx.ui.setFooter((tui, theme, footerData) => {
       const unsub = footerData.onBranchChange(() => tui.requestRender());
 
       return {
         dispose: unsub,
         invalidate() {},
         render(width: number): string[] {
-          const branch = footerData.getGitBranch() ?? "no-git";
-          const dirty = branch !== "no-git" && gitDirty(ctx.cwd);
-          const git = `${branch}${dirty ? "*" : ""}`;
+          try {
+            const branch = footerData.getGitBranch() ?? "no-git";
+            const git = `${branch}${branch !== "no-git" && gitDirty(ctx.cwd) ? "*" : ""}`;
 
-          const pct = usage?.percent != null ? Math.round(usage.percent) : max > 0 ? Math.round((used / max) * 100) : 0;
-          const showSpark = width >= 100;
-          const spark = showSpark ? sparkline(ctxHistory, 12) : "";
-          const bar = progressBar(pct, width >= 100 ? 10 : 6);
+            const rawStatuses = footerData.getExtensionStatuses() as unknown;
+            const statuses = Array.isArray(rawStatuses)
+              ? rawStatuses
+              : rawStatuses && typeof rawStatuses === "object"
+                ? Object.entries(rawStatuses as Record<string, unknown>).map(([key, value]) => {
+                    if (value && typeof value === "object") {
+                      const v = value as { key?: string; text?: string };
+                      return { key: v.key ?? key, text: v.text ?? "" };
+                    }
+                    return { key, text: String(value ?? "") };
+                  })
+                : [];
 
-          const ctxText = `ctx ${bar} ${fmtK(used)}/${fmtK(max)} ${pct}%${spark ? ` ${spark}` : ""}`;
+            const statusText = statuses
+              .filter((s) => s.key !== "pi.prelude.cockpit")
+              .map((s) => s.text)
+              .filter(Boolean)
+              .join(" ");
 
-          const ctxStyled =
-            used >= 100_000 || pct >= 85
-              ? theme.fg(pct >= 85 ? "error" : "warning", ctxText)
-              : theme.fg("muted", ctxText);
+            const bar = progressBar(pct, width >= 100 ? 10 : 6);
+            const showSpark = width >= 100;
+            const spark = showSpark ? sparkline(history, 10) : "";
+            const ctxText = `ctx ${bar} ${fmtK(used)}/${fmtK(max)} ${pct}%${spark ? ` ${spark}` : ""}`;
 
-          const modeChip = theme.bg("selectedBg", theme.fg("text", ` mode:${mode} `));
-          const gitChip = theme.fg("muted", ` git:${git} `);
-          const modelChip = theme.fg("muted", ` model:${model} `);
-          const thinkChip = theme.fg("muted", ` think:${think} `);
-          const costChip = theme.fg("dim", ` $${cost.toFixed(2)} `);
-          const stateChip = theme.fg(state === "working" ? "accent" : "dim", ` ${state} `);
+            const ctxStyled =
+              pct >= 85
+                ? theme.fg("error", ctxText)
+                : used >= 100_000
+                  ? theme.fg("warning", ctxText)
+                  : theme.fg("muted", ctxText);
 
-          const row1 = `${modeChip} • ${gitChip}`;
-          const row2Wide = `${modelChip} • ${thinkChip} • ${ctxStyled} • ${costChip} • ${stateChip}`;
-          const row2Medium = `${theme.fg("muted", `mdl:${ctx.model?.id ?? "none"}`)} • ${theme.fg("muted", `th:${think}`)} • ${ctxStyled} • ${theme.fg("dim", `$${cost.toFixed(2)}`)}`;
-          const row1Narrow = `${theme.fg("muted", `m:${mode}`)} • ${theme.fg("muted", `g:${git}`)} • ${ctxStyled} • ${theme.fg("dim", `$${cost.toFixed(2)}`)}`;
+            const modeChip = theme.bg("selectedBg", theme.fg("text", ` mode:${mode} `));
+            const gitChip = theme.fg("muted", ` git:${git} `);
+            const modelChip = theme.fg("muted", ` model:${model} `);
+            const thinkChip = theme.fg("muted", ` think:${think} `);
+            const costChip = theme.fg("dim", ` $${cost.toFixed(2)} `);
+            const rightStatus = statusText ? theme.fg("dim", statusText) : "";
 
-          if (width < 70) {
-            return [truncateToWidth(row1Narrow, width)];
+            const row1Left = `${modeChip} • ${gitChip} • ${modelChip}`;
+            if (width < 70) {
+              const compact = `${theme.fg("muted", `m:${mode}`)} • ${theme.fg("muted", `g:${git}`)} • ${ctxStyled} • ${theme.fg("dim", `$${cost.toFixed(2)}`)}`;
+              return [truncateToWidth(compact, width)];
+            }
+
+            const row2Wide = `${thinkChip} • ${ctxStyled} • ${costChip}`;
+            const row2Medium = `${theme.fg("muted", `th:${think}`)} • ${ctxStyled} • ${theme.fg("dim", `$${cost.toFixed(2)}`)}`;
+            const row2 = visibleWidth(row2Wide) <= width ? row2Wide : row2Medium;
+
+            if (!rightStatus) {
+              return [truncateToWidth(row1Left, width), truncateToWidth(row2, width)];
+            }
+
+            const pad = Math.max(1, width - visibleWidth(row1Left) - visibleWidth(rightStatus));
+            const row1 = truncateToWidth(`${row1Left}${" ".repeat(pad)}${rightStatus}`, width);
+            return [row1, truncateToWidth(row2, width)];
+          } catch {
+            return [truncateToWidth(theme.fg("warning", "cockpit unavailable, using fallback status"), width)];
           }
-
-          const second = visibleWidth(row2Wide) <= width
-            ? row2Wide
-            : visibleWidth(row2Medium) <= width
-              ? row2Medium
-              : `${ctxStyled} • ${theme.fg("dim", `$${cost.toFixed(2)}`)}`;
-
-          return [truncateToWidth(row1, width), truncateToWidth(second, width)];
         },
       };
     });
-
-    updateFallback(ctx);
+    } catch {
+      disableFooter(ctx, "setFooter failed");
+    }
   };
 
   pi.on("session_start", async (_event, ctx) => update(ctx));
   pi.on("model_select", async (_event, ctx) => update(ctx));
   pi.on("thinking_level_select", async (_event, ctx) => update(ctx));
   pi.on("turn_end", async (_event, ctx) => update(ctx));
-
-  pi.on("agent_start", async (_event, ctx) => {
-    state = "working";
-    update(ctx);
-  });
-
-  pi.on("agent_end", async (_event, ctx) => {
-    state = "idle";
-    update(ctx);
-  });
+  pi.on("agent_start", async (_event, ctx) => update(ctx));
+  pi.on("agent_end", async (_event, ctx) => update(ctx));
 }
