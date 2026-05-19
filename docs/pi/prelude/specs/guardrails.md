@@ -1,0 +1,109 @@
+# Spec: `guardrails.ts` (Phase 3)
+
+## Goal
+
+Add lightweight safety controls that reduce accidental destructive actions while keeping flow fast.
+
+## Scope
+
+In scope:
+- pre-execution checks for risky tool calls
+- protected path policy for file-modifying tools
+- dangerous shell command confirmation/blocking
+- clear user-facing reasons when blocked
+
+Out of scope:
+- full sandboxing
+- policy engines / role-based auth
+- per-command approval history storage
+
+## Events/hooks
+
+- `tool_call` hook
+
+Primary targets:
+- `write`
+- `edit`
+- `bash`
+
+## Policy model
+
+## 1) Protected path write policy
+
+Block writes/edits to protected paths by default:
+- `.env`
+- `.git/`
+- `node_modules/`
+- build artifacts (`dist/`, `build/`, `.next/`, `target/`)
+
+Behavior:
+- if `write.path` matches protected path → block
+- if `edit.path` matches protected path → block
+- return reason message with matched rule
+
+Config:
+- global defaults in extension
+- optional project overrides via nearest-upward `.pi/prelude/guardrails.json` discovery from `ctx.cwd`
+- optional user override via `${getAgentDir()}/prelude/guardrails.json`
+- precedence: project override > user override > defaults
+  - `protectedPaths: string[]`
+  - `allowPaths: string[]` (higher priority allowlist)
+
+## 2) Dangerous bash policy
+
+Detect dangerous command patterns (substring/regex):
+- `rm -rf`
+- `sudo`
+- `git reset --hard`
+- `git clean -fd`
+- `chmod -R`
+- publish/deploy class commands (`npm publish`, `gh release`, etc.)
+
+Behavior:
+- interactive mode: confirm via `ctx.ui.confirm`
+  - default is deny if user declines
+- non-interactive mode: block with explicit error reason
+
+Config:
+- defaults in extension
+- optional overrides from the same config discovery chain above:
+  - `dangerousCommands: string[]`
+  - `alwaysBlockCommands: string[]`
+
+## 3) Explanations and ergonomics
+
+On block/deny, return concise reason:
+- what was blocked
+- why (rule/pattern)
+- how to proceed (edit config or use safer command)
+
+No noisy prompts for low-risk actions.
+
+## Acceptance criteria
+
+1. `write`/`edit` to protected paths are blocked with clear reason.
+2. Dangerous `bash` commands require confirmation in interactive mode.
+3. Dangerous `bash` commands are blocked in non-interactive mode.
+4. Project config overrides load and affect decisions.
+5. Safe commands remain unaffected (low false-positive noise).
+
+## Config discovery requirements
+
+- Use `getAgentDir()` from `@mariozechner/pi-coding-agent` for user-level path.
+- Do **not** hardcode `~/.pi/agent` or rely on `$HOME` directly.
+- Discover project config by walking parent dirs from `ctx.cwd` (nearest `.pi/prelude/guardrails.json`).
+- Optionally stop upward traversal at git root.
+
+## Test plan
+
+Automated (contract level):
+- verify guardrails extension file exists and registers `tool_call`
+- verify protected path constants/patterns are present
+- verify dangerous command patterns are present
+
+Manual smoke:
+1. ask model to edit `.env` → expect block
+2. ask model to run `rm -rf ./tmp` → expect confirm
+3. decline confirm → expect blocked reason
+4. run benign `ls`/`grep` → no prompt
+5. add override config and retest behavior

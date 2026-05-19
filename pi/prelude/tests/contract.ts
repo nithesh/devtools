@@ -34,6 +34,7 @@ const requiredFiles = [
   "extensions/tools-ask.ts",
   "extensions/tools-todo.ts",
   "extensions/tools-web.ts",
+  "extensions/guardrails.ts",
 ];
 
 for (const rel of requiredFiles) checkFile(join(preludeDir, rel));
@@ -55,6 +56,12 @@ if (!toolsWeb.includes('name: "web_fetch"')) fail("tools-web.ts missing web_fetc
 if (!toolsWeb.includes("BRAVE_API_KEY")) fail("tools-web.ts missing Brave key integration");
 if (!toolsWeb.includes("ddgr")) fail("tools-web.ts missing ddgr fallback contract");
 if (!toolsWeb.includes("truncateBytes")) fail("tools-web.ts missing truncation helper contract");
+
+const guardrails = readFileSync(join(preludeDir, "extensions/guardrails.ts"), "utf8");
+if (!guardrails.includes('pi.on("tool_call"')) fail("guardrails.ts missing tool_call hook");
+for (const marker of [".env", ".git", "node_modules", "rm -rf", "git reset --hard", "ctx.ui.confirm"]) {
+  if (!guardrails.includes(marker)) fail(`guardrails.ts missing '${marker}' policy marker`);
+}
 
 const mode = readFileSync(join(preludeDir, "extensions/mode.ts"), "utf8");
 if (!mode.includes('registerCommand("mode"')) fail("mode.ts missing /mode command registration");
