@@ -68,22 +68,23 @@ export default function toolsAsk(pi: ExtensionAPI) {
     parameters: ParamsSchema,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (!ctx.hasUI) return errorResult("Error: ask_user requires interactive mode.");
-      if (!params.questions || params.questions.length === 0) {
-        return errorResult("Error: questions must contain at least one question.");
-      }
+      try {
+        if (!ctx.hasUI) return errorResult("Error: ask_user requires interactive mode.");
+        if (!params.questions || params.questions.length === 0) {
+          return errorResult("Error: questions must contain at least one question.");
+        }
 
-      const questions = params.questions.map((q, i) => ({
-        ...q,
-        label: q.label ?? `Q${i + 1}`,
-        allowOther: q.allowOther !== false,
-      }));
+        const questions = params.questions.map((q, i) => ({
+          ...q,
+          label: q.label ?? `Q${i + 1}`,
+          allowOther: q.allowOther !== false,
+        }));
 
-      for (const q of questions) {
-        if (!q.options || q.options.length === 0) return errorResult(`Error: question '${q.id}' has no options.`, questions);
-      }
+        for (const q of questions) {
+          if (!q.options || q.options.length === 0) return errorResult(`Error: question '${q.id}' has no options.`, questions);
+        }
 
-      const result = await ctx.ui.custom<AskDetails>((tui, theme, _kb, done) => {
+        const result = await ctx.ui.custom<AskDetails>((tui, theme, _kb, done) => {
         const answers = new Map<string, Answer>();
         let qIndex = 0;
         let optionIndex = 0;
@@ -332,19 +333,26 @@ export default function toolsAsk(pi: ExtensionAPI) {
         };
       });
 
-      const lines = result.answers.length
-        ? result.answers.map((a) => {
-            const qLabel = questions.find((q) => q.id === a.id)?.label ?? a.id;
-            return a.wasCustom
-              ? `${qLabel}: user wrote '${a.label}'`
-              : `${qLabel}: user selected ${a.index}. ${a.label}`;
-          })
-        : [result.cancelled ? "User cancelled question flow." : "No answers provided."];
+        const lines = result.answers.length
+          ? result.answers.map((a) => {
+              const qLabel = questions.find((q) => q.id === a.id)?.label ?? a.id;
+              return a.wasCustom
+                ? `${qLabel}: user wrote '${a.label}'`
+                : `${qLabel}: user selected ${a.index}. ${a.label}`;
+            })
+          : [result.cancelled ? "User cancelled question flow." : "No answers provided."];
 
-      return {
-        content: [{ type: "text", text: lines.join("\n") }],
-        details: result,
-      };
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+          details: result,
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text", text: `Error: ask_user failed safely. ${String((err as Error)?.message ?? err)}` }],
+          isError: true,
+          details: { questions: [], answers: [], cancelled: true } satisfies AskDetails,
+        };
+      }
     },
   });
 }
