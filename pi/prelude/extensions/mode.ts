@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { Api, Model } from "@mariozechner/pi-ai";
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { getAgentDir, type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
@@ -52,13 +52,24 @@ const DEFAULT_MODES: Record<ModeName, ModeConfig> = {
   },
 };
 
-function loadModes(cwd: string): ModesConfig {
-  const home = process.env.HOME ?? "";
-  const userPath = join(home, ".config", "pi-prelude", "modes.json");
-  const projectPath = join(cwd, ".pi", "prelude", "modes.json");
+function findNearestProjectConfig(cwd: string, relativeConfigPath: string): string | null {
+  let currentDir = cwd;
+  while (true) {
+    const candidate = join(currentDir, relativeConfigPath);
+    if (existsSync(candidate)) return candidate;
 
-  const parse = (path: string): ModesConfig => {
-    if (!existsSync(path)) return {};
+    const parentDir = dirname(currentDir);
+    if (parentDir === currentDir) return null;
+    currentDir = parentDir;
+  }
+}
+
+function loadModes(cwd: string): ModesConfig {
+  const userPath = join(getAgentDir(), "prelude", "modes.json");
+  const projectPath = findNearestProjectConfig(cwd, join(".pi", "prelude", "modes.json"));
+
+  const parse = (path: string | null): ModesConfig => {
+    if (!path || !existsSync(path)) return {};
     try {
       return JSON.parse(readFileSync(path, "utf-8")) as ModesConfig;
     } catch {

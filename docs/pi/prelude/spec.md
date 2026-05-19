@@ -81,14 +81,18 @@
 - Extra sources can be appended via `devtools.pi.prelude.extraExtensionSources`
 - Optional secondary packaging in `pi/prelude/package.json`
 
-## 4.3 Configuration layering (mode configs)
+## 4.3 Configuration discovery and layering
 
-Precedence (highest first):
-1. project: `.pi/devtools-pi/modes.json` (or renamed path for prelude)
-2. user: `~/.config/devtools-pi/modes.json`
-3. extension defaults (hardcoded)
+For extension configs, use Pi-aware discovery:
+1. project override: nearest-upward `.pi/prelude/<name>.json` from `ctx.cwd`
+2. user override: `${getAgentDir()}/prelude/<name>.json`
+3. extension defaults
 
-(We will finalize the exact config path in implementation; keep stable once chosen.)
+Guidelines:
+- Use `getAgentDir()` from `@mariozechner/pi-coding-agent` for user-level config.
+- Do not hardcode `~/.pi/agent` or rely on `$HOME` directly.
+- Parent traversal from `ctx.cwd` avoids assuming cwd is project root.
+- Optionally stop at git root for project scoping.
 
 ---
 
@@ -267,16 +271,16 @@ Resolved:
 2. Module filename convention: `module.nix` (aligned with other folders)
 
 Still open:
-1. Final mode config path naming (`devtools-pi` vs `pi-prelude` namespace for files/dirs)
+1. Final mode config file naming under `.pi/prelude/` (e.g. `modes.json`, `guardrails.json`)
 2. Web backend order/fallbacks and required runtime deps in Nix
 3. Protected path defaults and project overrides
 
 ---
 
-## 10) Immediate next step
+## 10) Follow-up alignment
 
-Implement **Phase 1**:
-1. write `docs/pi/prelude/specs/mode.md`
-2. implement `extensions/mode.ts`
-3. implement minimal `extensions/status.ts`
-4. add smoke test instructions
+Config discovery alignment has been applied to `pi/prelude/extensions/mode.ts`:
+- user config via `getAgentDir()/prelude/modes.json`
+- project config via nearest-upward `.pi/prelude/modes.json` discovery from `ctx.cwd`.
+
+Next implementation target: `guardrails.ts`.
