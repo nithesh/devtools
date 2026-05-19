@@ -71,6 +71,15 @@ in
             bun "$TEST_SCRIPT"
             touch "$out"
           '';
+
+          checks.pi-prelude-status-isolation = pkgs.runCommand "pi-prelude-status-isolation-test" {
+            nativeBuildInputs = [ pkgs.bun ];
+            TEST_SCRIPT = "${./tests/status-isolation.test.ts}";
+            STATUS_SOURCE_PATH = "${./extensions/status.ts}";
+          } ''
+            bun "$TEST_SCRIPT"
+            touch "$out"
+          '';
         }
       );
   };
