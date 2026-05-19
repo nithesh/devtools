@@ -22,6 +22,7 @@ Out of scope:
 - `tool_call` hook
 
 Primary targets:
+- `read`
 - `write`
 - `edit`
 - `bash`
@@ -37,6 +38,7 @@ Block writes/edits to protected paths by default:
 - build artifacts (`dist/`, `build/`, `.next/`, `target/`)
 
 Behavior:
+- if `read.path` matches protected path → block
 - if `write.path` matches protected path → block
 - if `edit.path` matches protected path → block
 - return reason message with matched rule
@@ -104,7 +106,7 @@ No noisy prompts for low-risk actions.
 
 ## Acceptance criteria
 
-1. `write`/`edit` to protected paths are blocked with clear reason.
+1. `read`/`write`/`edit` on protected paths are blocked with clear reason.
 2. Dangerous `bash` commands require confirmation in interactive mode.
 3. Dangerous `bash` commands are blocked in non-interactive mode.
 4. Project config overrides load and affect decisions.
@@ -125,8 +127,9 @@ Automated (contract level):
 - verify dangerous command patterns are present
 
 Manual smoke:
-1. ask model to edit `.env` → expect block
-2. ask model to run `rm -rf ./tmp` → expect confirm
-3. decline confirm → expect blocked reason
-4. run benign `ls`/`grep` → no prompt
-5. add override config and retest behavior
+1. ask model to read `.env` → expect block
+2. ask model to edit `.env` → expect block
+3. ask model to run `rm -rf ./tmp` → expect confirm
+4. decline confirm → expect blocked reason
+5. run benign `ls`/`grep` → no prompt
+6. add override config and retest behavior

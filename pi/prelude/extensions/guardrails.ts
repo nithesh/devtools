@@ -135,7 +135,7 @@ export default function guardrails(pi: ExtensionAPI) {
   });
 
   pi.on("tool_call", async (event, ctx) => {
-    if (isToolCallEventType("write", event) || isToolCallEventType("edit", event)) {
+    if (isToolCallEventType("read", event) || isToolCallEventType("write", event) || isToolCallEventType("edit", event)) {
       const rawPath = event.input.path;
       const absPath = resolve(ctx.cwd, rawPath);
 

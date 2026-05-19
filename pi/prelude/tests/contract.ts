@@ -59,6 +59,7 @@ if (!toolsWeb.includes("truncateBytes")) fail("tools-web.ts missing truncation h
 
 const guardrails = readFileSync(join(preludeDir, "extensions/guardrails.ts"), "utf8");
 if (!guardrails.includes('pi.on("tool_call"')) fail("guardrails.ts missing tool_call hook");
+if (!guardrails.includes('isToolCallEventType("read"')) fail("guardrails.ts missing read-path protection hook");
 for (const marker of [".env", ".git", "node_modules", "rm -rf", "git reset --hard", "ctx.ui.confirm"]) {
   if (!guardrails.includes(marker)) fail(`guardrails.ts missing '${marker}' policy marker`);
 }
