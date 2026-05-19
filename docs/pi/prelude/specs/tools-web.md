@@ -16,8 +16,9 @@ Parameters:
 - `limit` (optional, default 5, max 10)
 
 Behavior:
-- Prefer Brave Web Search API when `BRAVE_API_KEY` is set.
-- Fallback to CLI backend (`ddgr`) when no Brave key is available.
+- Backend order: Brave Web Search API first, then `ddgr` fallback.
+- If `BRAVE_API_KEY` is set but Brave request fails (network/status/parse), attempt `ddgr` fallback.
+- If no Brave key is set, use `ddgr` directly.
 - Return concise list with title + URL (+ snippet if available).
 - Truncate output safely.
 
@@ -36,6 +37,7 @@ Behavior:
 ## Failure behavior
 
 - Missing backend binary (`ddgr`/`curl`) or missing Brave key + missing fallback => explicit error.
+- `web_search` error should report attempted backends and last short error.
 - Command/network failure => explicit error with short stderr.
 - Invalid input => explicit validation-style error text.
 
@@ -44,3 +46,4 @@ Behavior:
 1. `web_search` returns structured, readable results when backend exists.
 2. `web_fetch` returns fetched content with bounds.
 3. Errors are deterministic and non-fatal.
+4. Runtime dependency contract is documented: `BRAVE_API_KEY` optional, `ddgr` and `curl` provided via Nix wrapper runtime PATH.

@@ -162,10 +162,12 @@ Guidelines:
 - `web_fetch`
 
 ### Required behavior
-- lightweight backend first (CLI/http)
+- web_search backend order: Brave API first, then `ddgr` fallback (including fallback after Brave runtime failure)
+- web_fetch uses `curl`
 - bounded output/truncation
 - URL citation in results
 - deterministic error messages
+- runtime dependency contract: optional `BRAVE_API_KEY`; `ddgr` and `curl` available in wrapped runtime PATH
 
 ### Deferred
 - optional deep fetch backend (Crawl4AI) as pluggable v2
@@ -280,7 +282,7 @@ Resolved:
 2. Module filename convention: `module.nix` (aligned with other folders)
 
 Still open:
-1. Web backend order/fallbacks and required runtime deps in Nix
+- (none)
 
 ---
 

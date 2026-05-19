@@ -47,6 +47,7 @@ in
             {
               pi-unwrapped = if cfg.package != null then cfg.package else config.packages.pi-unwrapped;
               extensions = [ preludePackage ] ++ cfg.extraExtensionSources;
+              runtimeBins = [ pkgs.ddgr pkgs.curl ];
             }
             // cfg.extraArgs
           );

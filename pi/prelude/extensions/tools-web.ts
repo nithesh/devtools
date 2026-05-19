@@ -48,8 +48,11 @@ export default function toolsWeb(pi: ExtensionAPI) {
 
       const limit = Math.min(Math.max(Math.floor(params.limit ?? 5), 1), 10);
       const braveKey = process.env.BRAVE_API_KEY?.trim();
+      const attempted: string[] = [];
+      let lastError: string | null = null;
 
       if (braveKey) {
+        attempted.push("brave");
         try {
           const url = new URL("https://api.search.brave.com/res/v1/web/search");
           url.searchParams.set("q", query);
@@ -62,46 +65,39 @@ export default function toolsWeb(pi: ExtensionAPI) {
             },
           });
 
-          if (!res.ok) {
+          if (res.ok) {
+            const data = (await res.json()) as {
+              web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
+            };
+
+            const rows = data.web?.results ?? [];
+            if (rows.length === 0) {
+              return {
+                content: [{ type: "text", text: "No search results found." }],
+                details: { backend: "brave", query, limit, count: 0 },
+              };
+            }
+
+            const lines = rows.slice(0, limit).map((r, i) => {
+              const title = r.title?.trim() || "(no title)";
+              const pageUrl = r.url?.trim() || "(no url)";
+              const snippet = r.description?.trim();
+              return `${i + 1}. ${title}\n   ${pageUrl}${snippet ? `\n   ${snippet}` : ""}`;
+            });
+
             return {
-              content: [{ type: "text", text: `Error: Brave search failed (${res.status}).` }],
-              isError: true,
-              details: { backend: "brave", query, limit, status: res.status },
+              content: [{ type: "text", text: lines.join("\n\n") }],
+              details: { backend: "brave", query, limit, count: rows.length },
             };
           }
 
-          const data = (await res.json()) as {
-            web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
-          };
-
-          const rows = data.web?.results ?? [];
-          if (rows.length === 0) {
-            return {
-              content: [{ type: "text", text: "No search results found." }],
-              details: { backend: "brave", query, limit, count: 0 },
-            };
-          }
-
-          const lines = rows.slice(0, limit).map((r, i) => {
-            const title = r.title?.trim() || "(no title)";
-            const pageUrl = r.url?.trim() || "(no url)";
-            const snippet = r.description?.trim();
-            return `${i + 1}. ${title}\n   ${pageUrl}${snippet ? `\n   ${snippet}` : ""}`;
-          });
-
-          return {
-            content: [{ type: "text", text: lines.join("\n\n") }],
-            details: { backend: "brave", query, limit, count: rows.length },
-          };
+          lastError = `Brave search failed (${res.status})`;
         } catch (err) {
-          return {
-            content: [{ type: "text", text: `Error: Brave search failed.\n${shortError(err)}` }],
-            isError: true,
-            details: { backend: "brave", query, limit },
-          };
+          lastError = `Brave search failed: ${shortError(err)}`;
         }
       }
 
+      attempted.push("ddgr");
       try {
         const { stdout } = await execFileAsync("ddgr", ["--json", "--np", "-n", String(limit), query], {
           maxBuffer: 1024 * 1024,
@@ -114,13 +110,14 @@ export default function toolsWeb(pi: ExtensionAPI) {
           return {
             content: [{ type: "text", text: "Error: web_search backend returned invalid JSON." }],
             isError: true,
+            details: { attempted, query, limit },
           };
         }
 
         if (!Array.isArray(rows) || rows.length === 0) {
           return {
             content: [{ type: "text", text: "No search results found." }],
-            details: { backend: "ddgr", query, limit, count: 0 },
+            details: { backend: "ddgr", query, limit, count: 0, attempted },
           };
         }
 
@@ -133,19 +130,19 @@ export default function toolsWeb(pi: ExtensionAPI) {
 
         return {
           content: [{ type: "text", text: lines.join("\n\n") }],
-          details: { backend: "ddgr", query, limit, count: rows.length },
+          details: { backend: "ddgr", query, limit, count: rows.length, attempted, fallbackFrom: braveKey ? "brave" : null },
         };
       } catch (err) {
+        const ddgrErr = shortError(err);
         return {
           content: [
             {
               type: "text",
-              text:
-                "Error: web_search failed. Set BRAVE_API_KEY (preferred) or install `ddgr`.\n" + shortError(err),
+              text: `Error: web_search failed. Attempted backends: ${attempted.join(" -> ")}.\n${lastError ? `${lastError}\n` : ""}${ddgrErr}`,
             },
           ],
           isError: true,
-          details: { backend: "ddgr", query, limit },
+          details: { backend: "ddgr", query, limit, attempted, lastError },
         };
       }
     },
