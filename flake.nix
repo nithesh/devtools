@@ -41,6 +41,16 @@
           config,
           ...
         }:
+        let
+          dev-pi = pkgs.writeShellScriptBin "pi" ''
+            set -euo pipefail
+
+            ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+            PRELUDE_PATH="$ROOT/pi/prelude"
+
+            exec ${self'.packages.pi-unwrapped}/bin/pi --extension "$PRELUDE_PATH" "$@"
+          '';
+        in
         {
           devShells.default = pkgs.mkShell {
             buildInputs = [
@@ -49,7 +59,7 @@
               self'.packages.neovim
               self'.packages.zellij
               self'.packages.agent-console
-              self'.packages.pi-prelude
+              dev-pi
               inputs'.nil.packages.default
               self'.formatter
             ];
