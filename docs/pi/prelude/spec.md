@@ -280,6 +280,9 @@ A phase is done when:
 Resolved:
 1. Module placement: under `pi/prelude/` (not top-level)
 2. Module filename convention: `module.nix` (aligned with other folders)
+3. Stable config naming and discovery for mode/guardrails under `.pi/prelude/` and `${getAgentDir()}/prelude/`
+4. Guardrails path policy uses gitignore-like patterns with git-root anchoring for `/`-prefixed rules
+5. Web backend order and runtime dependency contract finalized (Brave -> ddgr, curl for fetch)
 
 Still open:
 - (none)
@@ -291,3 +294,13 @@ Still open:
 Config discovery alignment has been applied:
 - mode config via `getAgentDir()/prelude/modes.json` and nearest-upward `.pi/prelude/modes.json`
 - guardrails config via `getAgentDir()/prelude/guardrails.json` and nearest-upward `.pi/prelude/guardrails.json`.
+
+## 11) MVP status
+
+`pi/prelude` MVP in this spec is complete:
+- core extensions implemented (`mode`, `status`, `tools-ask`, `tools-todo`, `tools-web`, `guardrails`)
+- Nix packaging/module wiring complete
+- automated checks in place (build + contract + matcher/isolation checks)
+- manual smoke checklist updated and executed
+
+Future enhancements should be tracked in `docs/pi/prelude/backlog.md`.
