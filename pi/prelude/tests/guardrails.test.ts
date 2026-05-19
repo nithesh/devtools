@@ -12,6 +12,52 @@ function normalizeCmd(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function normalizeRel(p: string): string {
+  return p.replace(/\\/g, "/").replace(/^\.(\/|$)/, "").replace(/^\/+/, "");
+}
+
+function globToRegExp(glob: string): RegExp {
+  let s = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*") {
+      if (glob[i + 1] === "*") {
+        s += ".*";
+        i++;
+      } else {
+        s += "[^/]*";
+      }
+      continue;
+    }
+    if (c === "?") {
+      s += "[^/]";
+      continue;
+    }
+    if (/[\\^$+?.()|{}\[\]]/.test(c)) {
+      s += `\\${c}`;
+    } else {
+      s += c;
+    }
+  }
+  return new RegExp(`^${s}$`);
+}
+
+function patternMatches(relToCwd: string, relToRoot: string, pattern: string): boolean {
+  const normalizedPattern = normalizeRel(pattern.trim());
+  const anchored = pattern.trim().startsWith("/");
+  const target = normalizeRel(anchored ? relToRoot : relToCwd);
+  const basePattern = normalizedPattern.endsWith("/") ? `${normalizedPattern}**` : normalizedPattern;
+  const rx = globToRegExp(basePattern);
+
+  if (anchored) {
+    return rx.test(target);
+  }
+  if (!normalizedPattern.includes("/")) {
+    return target.split("/").some((seg) => rx.test(seg));
+  }
+  return rx.test(target);
+}
+
 function splitCommandSegments(command: string): string[] {
   return command
     .split(/&&|\|\||;|\||\n/g)
@@ -59,6 +105,13 @@ const rules: ResolvedRules = {
   eq(matchRule("rm -rf /tmp/x", rules), "rm -rf", "prefix rule should match start");
   eq(matchRule("sudo apt update", rules), "sudo", "prefix rule should match sudo command");
   eq(matchRule("echo safe", rules), null, "safe command should not match");
+}
+
+{
+  assert(patternMatches(".env", ".env", "/.env"), "root-anchored /.env should match repo root .env");
+  assert(!patternMatches("apps/a/.env", "apps/a/.env", "/.env"), "root-anchored /.env should not match nested .env");
+  assert(patternMatches("apps/a/.env", "apps/a/.env", "**/*.env"), "glob pattern should match nested env files");
+  assert(patternMatches(".env.example", ".env.example", "/.env.example"), "allow rule can match root env example");
 }
 
 console.log("guardrails matcher tests passed");

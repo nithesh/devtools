@@ -31,30 +31,42 @@ Primary targets:
 
 ## 1) Protected path write policy
 
-Block writes/edits to protected paths by default:
-- `.env`
-- `.git/`
-- `node_modules/`
-- build artifacts (`dist/`, `build/`, `.next/`, `target/`)
+Protect by default with separate read/write lists.
+
+Read-protected defaults:
+- `/.env` (exact file)
+- private keys / credentials (`**/id_rsa`, `**/id_ed25519`, `**/*.pem`, `**/*.key`, `**/*.p12`, `**/*.pfx`, `**/.aws/credentials`, `**/.npmrc`, `**/.docker/config.json`)
+
+Read-allow defaults:
+- `/.env.example`
+- `/.envrc`
+
+Write-protected defaults:
+- `/.env`
+- `/.git/**`
+- `**/node_modules/**`
+- build artifacts (`**/dist/**`, `**/build/**`, `**/.next/**`, `**/target/**`)
 
 Behavior:
-- if `read.path` matches protected path → block
-- if `write.path` matches protected path → block
-- if `edit.path` matches protected path → block
-- return reason message with matched rule
+- if `read.path` matches protected read pattern and not allow pattern → block
+- if `write.path`/`edit.path` matches protected write pattern and not allow pattern → block
+- return reason message with matched pattern
 
 Config:
 - global defaults in extension
 - optional project overrides via nearest-upward `.pi/prelude/guardrails.json` discovery from `ctx.cwd`
 - optional user override via `${getAgentDir()}/prelude/guardrails.json`
 - precedence: project override > user override > defaults
-  - `protectedReadPaths: string[]`
-  - `allowReadPaths: string[]` (higher priority allowlist)
-  - `protectedWritePaths: string[]`
-  - `allowWritePaths: string[]` (higher priority allowlist)
+  - `protectedReadPatterns: string[]`
+  - `allowReadPatterns: string[]` (higher priority allowlist)
+  - `protectedWritePatterns: string[]`
+  - `allowWritePatterns: string[]` (higher priority allowlist)
 
-Backward compatibility:
-- legacy `protectedPaths` / `allowPaths` are used as fallback defaults for both read and write lists when split keys are absent.
+Pattern semantics (gitignore-like):
+- `*` and `**` globs are supported.
+- Patterns starting with `/` are anchored at git root (like `.gitignore`).
+- Patterns without leading `/` are matched relative to current working path.
+- `.env.example` and `.envrc` are explicitly allowed by default.
 
 ## 2) Dangerous bash policy
 

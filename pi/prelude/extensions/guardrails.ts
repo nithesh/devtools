@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, normalize, resolve } from "node:path";
+import { dirname, join, normalize, relative, resolve } from "node:path";
 import { getAgentDir, isToolCallEventType, type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 interface RuleGroup {
@@ -8,13 +8,10 @@ interface RuleGroup {
 }
 
 interface GuardrailsConfig {
-  protectedReadPaths?: string[];
-  allowReadPaths?: string[];
-  protectedWritePaths?: string[];
-  allowWritePaths?: string[];
-  // Backward-compat fallback keys
-  protectedPaths?: string[];
-  allowPaths?: string[];
+  protectedReadPatterns?: string[];
+  allowReadPatterns?: string[];
+  protectedWritePatterns?: string[];
+  allowWritePatterns?: string[];
   dangerously_allow?: RuleGroup;
   always_block?: RuleGroup;
   confirm?: RuleGroup;
@@ -26,24 +23,33 @@ export interface ResolvedRules {
 }
 
 interface ResolvedGuardrailsConfig {
-  protectedReadPaths: string[];
-  allowReadPaths: string[];
-  protectedWritePaths: string[];
-  allowWritePaths: string[];
+  protectedReadPatterns: string[];
+  allowReadPatterns: string[];
+  protectedWritePatterns: string[];
+  allowWritePatterns: string[];
   dangerously_allow: ResolvedRules;
   always_block: ResolvedRules;
   confirm: ResolvedRules;
 }
 
-const DEFAULT_PROTECTED_PATHS = [".env", ".git", "node_modules", "dist", "build", ".next", "target"];
+const DEFAULT_PROTECTED_READ_PATTERNS = [
+  "/.env",
+  "**/id_rsa",
+  "**/id_ed25519",
+  "**/*.pem",
+  "**/*.key",
+  "**/*.p12",
+  "**/*.pfx",
+  "**/.aws/credentials",
+  "**/.npmrc",
+  "**/.docker/config.json",
+];
+const DEFAULT_ALLOW_READ_PATTERNS = ["/.env.example", "/.envrc"];
+const DEFAULT_PROTECTED_WRITE_PATTERNS = ["/.env", "/.git/**", "**/node_modules/**", "**/dist/**", "**/build/**", "**/.next/**", "**/target/**"];
+const DEFAULT_ALLOW_WRITE_PATTERNS: string[] = [];
 
 const DEFAULT_DANGEROUSLY_ALLOW: ResolvedRules = { exact: [], prefix: [] };
-
-const DEFAULT_ALWAYS_BLOCK: ResolvedRules = {
-  exact: ["rm -rf /"],
-  prefix: ["mkfs", "dd if="],
-};
-
+const DEFAULT_ALWAYS_BLOCK: ResolvedRules = { exact: ["rm -rf /"], prefix: ["mkfs", "dd if="] };
 const DEFAULT_CONFIRM: ResolvedRules = {
   exact: ["git reset --hard", "git clean -fd"],
   prefix: ["rm -rf", "sudo", "chmod -r", "npm publish", "gh release", "docker push", "kubectl delete"],
@@ -61,6 +67,16 @@ function findNearestProjectConfig(cwd: string, relativeConfigPath: string): stri
   }
 }
 
+function findGitRoot(cwd: string): string {
+  let currentDir = cwd;
+  while (true) {
+    if (existsSync(join(currentDir, ".git"))) return currentDir;
+    const parentDir = dirname(currentDir);
+    if (parentDir === currentDir) return cwd;
+    currentDir = parentDir;
+  }
+}
+
 function loadJson(path: string | null): GuardrailsConfig {
   if (!path || !existsSync(path)) return {};
   try {
@@ -70,19 +86,61 @@ function loadJson(path: string | null): GuardrailsConfig {
   }
 }
 
-function hasPathPrefix(target: string, base: string): boolean {
-  const t = normalize(target);
-  const b = normalize(base);
-  return t === b || t.startsWith(`${b}/`);
-}
-
-function pathMatchesRule(absPath: string, rule: string, cwd: string): boolean {
-  const base = resolve(cwd, rule);
-  return hasPathPrefix(absPath, base);
-}
-
 function normalizeCmd(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function normalizeRel(p: string): string {
+  return p.replace(/\\/g, "/").replace(/^\.(\/|$)/, "").replace(/^\/+/, "");
+}
+
+function globToRegExp(glob: string): RegExp {
+  let s = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*") {
+      if (glob[i + 1] === "*") {
+        s += ".*";
+        i++;
+      } else {
+        s += "[^/]*";
+      }
+      continue;
+    }
+    if (c === "?") {
+      s += "[^/]";
+      continue;
+    }
+    if (/[\\^$+?.()|{}\[\]]/.test(c)) {
+      s += `\\${c}`;
+    } else {
+      s += c;
+    }
+  }
+  return new RegExp(`^${s}$`);
+}
+
+export function patternMatches(absPath: string, cwd: string, gitRoot: string, pattern: string): boolean {
+  const normalizedPattern = normalizeRel(pattern.trim());
+  if (!normalizedPattern) return false;
+
+  const relToCwd = normalizeRel(relative(cwd, absPath));
+  const relToRoot = normalizeRel(relative(gitRoot, absPath));
+  const anchored = pattern.trim().startsWith("/");
+  const target = anchored ? relToRoot : relToCwd;
+
+  const basePattern = normalizedPattern.endsWith("/") ? `${normalizedPattern}**` : normalizedPattern;
+  const rx = globToRegExp(basePattern);
+
+  if (anchored) {
+    return rx.test(target);
+  }
+
+  if (!normalizedPattern.includes("/")) {
+    return target.split("/").some((seg) => rx.test(seg));
+  }
+
+  return rx.test(target);
 }
 
 export function splitCommandSegments(command: string): string[] {
@@ -99,36 +157,24 @@ export function matchesPrefix(segment: string, prefix: string): boolean {
 export function matchRule(segment: string, rules: ResolvedRules): string | null {
   const exact = rules.exact.find((r) => segment === normalizeCmd(r));
   if (exact) return exact;
-
   const pref = rules.prefix.find((r) => matchesPrefix(segment, normalizeCmd(r)));
-  if (pref) return pref;
-
-  return null;
+  return pref ?? null;
 }
 
 function resolveRules(group: RuleGroup | undefined, defaults: ResolvedRules): ResolvedRules {
-  return {
-    exact: group?.exact ?? defaults.exact,
-    prefix: group?.prefix ?? defaults.prefix,
-  };
+  return { exact: group?.exact ?? defaults.exact, prefix: group?.prefix ?? defaults.prefix };
 }
 
 function loadConfig(cwd: string): ResolvedGuardrailsConfig {
   const userPath = join(getAgentDir(), "prelude", "guardrails.json");
   const projectPath = findNearestProjectConfig(cwd, join(".pi", "prelude", "guardrails.json"));
-  const merged = {
-    ...loadJson(userPath),
-    ...loadJson(projectPath),
-  };
-
-  const protectedFallback = merged.protectedPaths ?? DEFAULT_PROTECTED_PATHS;
-  const allowFallback = merged.allowPaths ?? [];
+  const merged = { ...loadJson(userPath), ...loadJson(projectPath) };
 
   return {
-    protectedReadPaths: merged.protectedReadPaths ?? protectedFallback,
-    allowReadPaths: merged.allowReadPaths ?? allowFallback,
-    protectedWritePaths: merged.protectedWritePaths ?? protectedFallback,
-    allowWritePaths: merged.allowWritePaths ?? allowFallback,
+    protectedReadPatterns: merged.protectedReadPatterns ?? DEFAULT_PROTECTED_READ_PATTERNS,
+    allowReadPatterns: merged.allowReadPatterns ?? DEFAULT_ALLOW_READ_PATTERNS,
+    protectedWritePatterns: merged.protectedWritePatterns ?? DEFAULT_PROTECTED_WRITE_PATTERNS,
+    allowWritePatterns: merged.allowWritePatterns ?? DEFAULT_ALLOW_WRITE_PATTERNS,
     dangerously_allow: resolveRules(merged.dangerously_allow, DEFAULT_DANGEROUSLY_ALLOW),
     always_block: resolveRules(merged.always_block, DEFAULT_ALWAYS_BLOCK),
     confirm: resolveRules(merged.confirm, DEFAULT_CONFIRM),
@@ -150,88 +196,70 @@ export default function guardrails(pi: ExtensionAPI) {
     }
   };
 
-  pi.on("session_start", async (_event, ctx) => {
-    refresh(ctx);
-  });
+  pi.on("session_start", async (_event, ctx) => refresh(ctx));
 
   pi.on("tool_call", async (event, ctx) => {
     try {
       if (isToolCallEventType("read", event) || isToolCallEventType("write", event) || isToolCallEventType("edit", event)) {
-      const rawPath = event.input.path;
-      const absPath = resolve(ctx.cwd, rawPath);
+        const rawPath = event.input.path;
+        const absPath = normalize(resolve(ctx.cwd, rawPath));
+        const gitRoot = findGitRoot(ctx.cwd);
 
-      const isRead = isToolCallEventType("read", event);
-      const allowList = isRead ? config.allowReadPaths : config.allowWritePaths;
-      const protectedList = isRead ? config.protectedReadPaths : config.protectedWritePaths;
+        const isRead = isToolCallEventType("read", event);
+        const allowList = isRead ? config.allowReadPatterns : config.allowWritePatterns;
+        const protectedList = isRead ? config.protectedReadPatterns : config.protectedWritePatterns;
 
-      const allow = allowList.find((rule) => pathMatchesRule(absPath, rule, ctx.cwd));
-      if (allow) return;
+        const allowedBy = allowList.find((p) => patternMatches(absPath, ctx.cwd, gitRoot, p));
+        if (allowedBy) return;
 
-      const blockedBy = protectedList.find((rule) => pathMatchesRule(absPath, rule, ctx.cwd));
-      if (blockedBy) {
-        return {
-          block: true,
-          reason: `Blocked ${event.toolName} on protected path '${rawPath}' (rule: ${blockedBy}).`,
-        };
+        const blockedBy = protectedList.find((p) => patternMatches(absPath, ctx.cwd, gitRoot, p));
+        if (blockedBy) {
+          return {
+            block: true,
+            reason: `Blocked ${event.toolName} on protected path '${rawPath}' (pattern: ${blockedBy}).`,
+          };
+        }
+        return;
       }
-      return;
-    }
 
-    if (isToolCallEventType("bash", event)) {
-      const command = event.input.command ?? "";
-      const segments = splitCommandSegments(command);
+      if (isToolCallEventType("bash", event)) {
+        const command = event.input.command ?? "";
+        const segments = splitCommandSegments(command);
 
-      const blockedMatches: string[] = [];
-      const confirmMatches: string[] = [];
+        const blockedMatches: string[] = [];
+        const confirmMatches: string[] = [];
 
-      for (const seg of segments) {
-        if (matchRule(seg, config.dangerously_allow)) continue;
+        for (const seg of segments) {
+          if (matchRule(seg, config.dangerously_allow)) continue;
 
-        const block = matchRule(seg, config.always_block);
-        if (block) {
-          blockedMatches.push(`${block} (segment: ${seg})`);
-          continue;
+          const block = matchRule(seg, config.always_block);
+          if (block) {
+            blockedMatches.push(`${block} (segment: ${seg})`);
+            continue;
+          }
+
+          const confirm = matchRule(seg, config.confirm);
+          if (confirm) confirmMatches.push(`${confirm} (segment: ${seg})`);
         }
 
-        const confirm = matchRule(seg, config.confirm);
-        if (confirm) {
-          confirmMatches.push(`${confirm} (segment: ${seg})`);
+        if (blockedMatches.length > 0) {
+          return { block: true, reason: `Blocked dangerous command by policy: ${blockedMatches[0]}` };
         }
-      }
 
-      if (blockedMatches.length > 0) {
-        return {
-          block: true,
-          reason: `Blocked dangerous command by policy: ${blockedMatches[0]}`,
-        };
-      }
+        if (confirmMatches.length === 0) return;
+        if (!ctx.hasUI) {
+          return { block: true, reason: `Blocked risky command in non-interactive mode: ${confirmMatches[0]}` };
+        }
 
-      if (confirmMatches.length === 0) return;
-
-      if (!ctx.hasUI) {
-        return {
-          block: true,
-          reason: `Blocked risky command in non-interactive mode: ${confirmMatches[0]}`,
-        };
+        const ok = await ctx.ui.confirm(
+          "Guardrails",
+          `Allow risky bash command?\n\nMatch: ${confirmMatches[0]}\nCommand: ${command}`,
+        );
+        if (!ok) return { block: true, reason: `User denied risky command: ${confirmMatches[0]}` };
       }
-
-      const ok = await ctx.ui.confirm(
-        "Guardrails",
-        `Allow risky bash command?\n\nMatch: ${confirmMatches[0]}\nCommand: ${command}`,
-      );
-      if (!ok) {
-        return {
-          block: true,
-          reason: `User denied risky command: ${confirmMatches[0]}`,
-        };
-      }
-    }
     } catch (err) {
       handleError(ctx, err);
-      return {
-        block: true,
-        reason: "Guardrails internal error; command blocked safely.",
-      };
+      return { block: true, reason: "Guardrails internal error; command blocked safely." };
     }
   });
 }

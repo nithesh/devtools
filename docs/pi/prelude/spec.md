@@ -89,6 +89,8 @@ For extension configs, use Pi-aware discovery:
 2. user override: `${getAgentDir()}/prelude/<name>.json`
 3. extension defaults
 
+Guardrails path config uses gitignore-like pattern lists (`*Patterns`) and `/`-anchored rules resolve from git root.
+
 Stable config file names for MVP:
 - modes: `.pi/prelude/modes.json` and `${getAgentDir()}/prelude/modes.json`
 - guardrails: `.pi/prelude/guardrails.json` and `${getAgentDir()}/prelude/guardrails.json`
@@ -171,8 +173,9 @@ Guidelines:
 ## 5.5 `guardrails.ts`
 
 ### Required behavior
-- block or confirm writes to protected paths:
-  - `.env`, `.git/`, `node_modules/`, generated/build dirs
+- block or confirm operations using gitignore-like pattern lists
+- read-protect secrets by default (`/.env`, private keys/credential files), while allowing `/.env.example` and `/.envrc`
+- write-protect by default (`/.env`, `/.git/**`, `**/node_modules/**`, build dirs)
 - confirm dangerous bash commands:
   - `rm -rf`, `sudo`, hard resets/clean, deploy/publish class commands
 - clear user-facing reason when blocked
