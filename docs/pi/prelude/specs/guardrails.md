@@ -48,8 +48,13 @@ Config:
 - optional project overrides via nearest-upward `.pi/prelude/guardrails.json` discovery from `ctx.cwd`
 - optional user override via `${getAgentDir()}/prelude/guardrails.json`
 - precedence: project override > user override > defaults
-  - `protectedPaths: string[]`
-  - `allowPaths: string[]` (higher priority allowlist)
+  - `protectedReadPaths: string[]`
+  - `allowReadPaths: string[]` (higher priority allowlist)
+  - `protectedWritePaths: string[]`
+  - `allowWritePaths: string[]` (higher priority allowlist)
+
+Backward compatibility:
+- legacy `protectedPaths` / `allowPaths` are used as fallback defaults for both read and write lists when split keys are absent.
 
 ## 2) Dangerous bash policy
 
@@ -106,7 +111,7 @@ No noisy prompts for low-risk actions.
 
 ## Acceptance criteria
 
-1. `read`/`write`/`edit` on protected paths are blocked with clear reason.
+1. `read` and `write`/`edit` policies can differ via split path lists, and blocked operations return clear reasons.
 2. Dangerous `bash` commands require confirmation in interactive mode.
 3. Dangerous `bash` commands are blocked in non-interactive mode.
 4. Project config overrides load and affect decisions.

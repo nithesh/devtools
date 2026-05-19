@@ -8,6 +8,11 @@ interface RuleGroup {
 }
 
 interface GuardrailsConfig {
+  protectedReadPaths?: string[];
+  allowReadPaths?: string[];
+  protectedWritePaths?: string[];
+  allowWritePaths?: string[];
+  // Backward-compat fallback keys
   protectedPaths?: string[];
   allowPaths?: string[];
   dangerously_allow?: RuleGroup;
@@ -21,8 +26,10 @@ interface ResolvedRules {
 }
 
 interface ResolvedGuardrailsConfig {
-  protectedPaths: string[];
-  allowPaths: string[];
+  protectedReadPaths: string[];
+  allowReadPaths: string[];
+  protectedWritePaths: string[];
+  allowWritePaths: string[];
   dangerously_allow: ResolvedRules;
   always_block: ResolvedRules;
   confirm: ResolvedRules;
@@ -114,9 +121,14 @@ function loadConfig(cwd: string): ResolvedGuardrailsConfig {
     ...loadJson(projectPath),
   };
 
+  const protectedFallback = merged.protectedPaths ?? DEFAULT_PROTECTED_PATHS;
+  const allowFallback = merged.allowPaths ?? [];
+
   return {
-    protectedPaths: merged.protectedPaths ?? DEFAULT_PROTECTED_PATHS,
-    allowPaths: merged.allowPaths ?? [],
+    protectedReadPaths: merged.protectedReadPaths ?? protectedFallback,
+    allowReadPaths: merged.allowReadPaths ?? allowFallback,
+    protectedWritePaths: merged.protectedWritePaths ?? protectedFallback,
+    allowWritePaths: merged.allowWritePaths ?? allowFallback,
     dangerously_allow: resolveRules(merged.dangerously_allow, DEFAULT_DANGEROUSLY_ALLOW),
     always_block: resolveRules(merged.always_block, DEFAULT_ALWAYS_BLOCK),
     confirm: resolveRules(merged.confirm, DEFAULT_CONFIRM),
@@ -139,10 +151,14 @@ export default function guardrails(pi: ExtensionAPI) {
       const rawPath = event.input.path;
       const absPath = resolve(ctx.cwd, rawPath);
 
-      const allow = config.allowPaths.find((rule) => pathMatchesRule(absPath, rule, ctx.cwd));
+      const isRead = isToolCallEventType("read", event);
+      const allowList = isRead ? config.allowReadPaths : config.allowWritePaths;
+      const protectedList = isRead ? config.protectedReadPaths : config.protectedWritePaths;
+
+      const allow = allowList.find((rule) => pathMatchesRule(absPath, rule, ctx.cwd));
       if (allow) return;
 
-      const blockedBy = config.protectedPaths.find((rule) => pathMatchesRule(absPath, rule, ctx.cwd));
+      const blockedBy = protectedList.find((rule) => pathMatchesRule(absPath, rule, ctx.cwd));
       if (blockedBy) {
         return {
           block: true,
