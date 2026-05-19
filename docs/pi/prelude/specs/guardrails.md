@@ -66,9 +66,32 @@ Behavior:
 
 Config:
 - defaults in extension
-- optional overrides from the same config discovery chain above:
-  - `dangerousCommands: string[]`
-  - `alwaysBlockCommands: string[]`
+- optional overrides from the same config discovery chain above using structured rule groups:
+  - `dangerously_allow.exact: string[]`
+  - `dangerously_allow.prefix: string[]`
+  - `always_block.exact: string[]`
+  - `always_block.prefix: string[]`
+  - `confirm.exact: string[]`
+  - `confirm.prefix: string[]`
+
+Override semantics (MVP):
+- Each configured list **replaces** the built-in list for that key.
+- If you want to add one confirm command, copy the built-in confirm list and append your command.
+- This is intentionally simple for now; we may add append/merge semantics later.
+
+## Matching semantics (MVP)
+
+- Split bash input into segments by shell operators (`&&`, `||`, `;`, `|`, newline).
+- Evaluate each segment with precedence:
+  1. `dangerously_allow` (skip checks for that segment)
+  2. `always_block` (block immediately)
+  3. `confirm` (mark as risky)
+- `exact` means normalized segment equals rule.
+- `prefix` means normalized segment starts with rule as a command prefix.
+- If any segment is blocked, block.
+- Else if any segment is risky, request one confirmation (interactive) or block (non-interactive).
+
+Note: this is a lightweight custom matcher. Before expanding it, we should review ecosystem patterns/tools to avoid reinventing policy matching unnecessarily.
 
 ## 3) Explanations and ergonomics
 
