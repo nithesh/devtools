@@ -137,9 +137,17 @@ function loadConfig(cwd: string): ResolvedGuardrailsConfig {
 
 export default function guardrails(pi: ExtensionAPI) {
   let config = loadConfig(process.cwd());
+  let errorNotified = false;
 
   const refresh = (ctx: ExtensionContext) => {
     config = loadConfig(ctx.cwd);
+  };
+
+  const handleError = (ctx: ExtensionContext, err: unknown) => {
+    if (!errorNotified) {
+      errorNotified = true;
+      ctx.ui.notify(`Guardrails degraded: ${String((err as Error)?.message ?? err)}`, "warning");
+    }
   };
 
   pi.on("session_start", async (_event, ctx) => {
@@ -147,7 +155,8 @@ export default function guardrails(pi: ExtensionAPI) {
   });
 
   pi.on("tool_call", async (event, ctx) => {
-    if (isToolCallEventType("read", event) || isToolCallEventType("write", event) || isToolCallEventType("edit", event)) {
+    try {
+      if (isToolCallEventType("read", event) || isToolCallEventType("write", event) || isToolCallEventType("edit", event)) {
       const rawPath = event.input.path;
       const absPath = resolve(ctx.cwd, rawPath);
 
@@ -216,6 +225,13 @@ export default function guardrails(pi: ExtensionAPI) {
           reason: `User denied risky command: ${confirmMatches[0]}`,
         };
       }
+    }
+    } catch (err) {
+      handleError(ctx, err);
+      return {
+        block: true,
+        reason: "Guardrails internal error; command blocked safely.",
+      };
     }
   });
 }
