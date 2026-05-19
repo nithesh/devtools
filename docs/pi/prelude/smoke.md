@@ -36,3 +36,27 @@ Switch model/thinking and run a prompt.
 Check:
 - status readability (mode/model/git)
 - working → idle transitions feel stable
+- footer failure (if induced) degrades to fallback status without breaking session
+
+## 5) guardrails UX
+
+- try reading `./.env` at repo root → expect block
+- try reading `./.env.example` and `./.envrc` → allowed
+- try editing `./.env` → blocked
+- try dangerous bash (`rm -rf ./tmp`) → confirm prompt
+- decline confirm → blocked reason
+
+Check:
+- block/confirm reasons are concise and actionable
+- no prompt noise for benign commands (`ls`, `grep`)
+
+## 6) web tools UX
+
+- `web_search` with normal query (with and without `BRAVE_API_KEY`)
+- if possible, simulate Brave failure and confirm fallback to `ddgr`
+- `web_fetch` on known URL
+
+Check:
+- results include URL citations
+- bounded/truncated output behavior is clear
+- deterministic error text when backend/network is unavailable
