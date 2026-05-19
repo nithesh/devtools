@@ -45,7 +45,7 @@ Fields per mode:
 
 Precedence (highest first):
 1. project: `.pi/prelude/modes.json`
-2. user: `~/.config/pi-prelude/modes.json`
+2. user: `${getAgentDir()}/prelude/modes.json`
 3. built-in defaults in extension
 
 Unknown mode fields are ignored with warning.

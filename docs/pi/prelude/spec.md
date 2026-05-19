@@ -89,6 +89,10 @@ For extension configs, use Pi-aware discovery:
 2. user override: `${getAgentDir()}/prelude/<name>.json`
 3. extension defaults
 
+Stable config file names for MVP:
+- modes: `.pi/prelude/modes.json` and `${getAgentDir()}/prelude/modes.json`
+- guardrails: `.pi/prelude/guardrails.json` and `${getAgentDir()}/prelude/guardrails.json`
+
 Guidelines:
 - Use `getAgentDir()` from `@mariozechner/pi-coding-agent` for user-level config.
 - Do not hardcode `~/.pi/agent` or rely on `$HOME` directly.
@@ -272,16 +276,13 @@ Resolved:
 2. Module filename convention: `module.nix` (aligned with other folders)
 
 Still open:
-1. Final mode config file naming under `.pi/prelude/` (e.g. `modes.json`, `guardrails.json`)
-2. Web backend order/fallbacks and required runtime deps in Nix
-3. Protected path defaults and project overrides
+1. Web backend order/fallbacks and required runtime deps in Nix
+2. Protected path defaults and project overrides
 
 ---
 
 ## 10) Follow-up alignment
 
-Config discovery alignment has been applied to `pi/prelude/extensions/mode.ts`:
-- user config via `getAgentDir()/prelude/modes.json`
-- project config via nearest-upward `.pi/prelude/modes.json` discovery from `ctx.cwd`.
-
-Next implementation target: `guardrails.ts`.
+Config discovery alignment has been applied:
+- mode config via `getAgentDir()/prelude/modes.json` and nearest-upward `.pi/prelude/modes.json`
+- guardrails config via `getAgentDir()/prelude/guardrails.json` and nearest-upward `.pi/prelude/guardrails.json`.
