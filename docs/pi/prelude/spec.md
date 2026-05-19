@@ -262,8 +262,9 @@ A phase is done when:
 - **Static checks**: `nix flake check`
 - **Build checks**: ensure wrapper package builds on configured systems
 - **Behavior checks**:
-  - shell-script tests for wrapper flags and file wiring
-  - extension-level smoke scenarios (manual transcript until RPC harness exists)
+  - TypeScript+Bun contract checks for wrapper flags/file wiring
+  - extension matcher checks (e.g., guardrails command/pattern matching)
+  - extension isolation checks (status/ask/guardrails fail-safe markers)
 - **Manual smoke list** for each release:
   - switch modes via hotkey while composing prompt
   - run ask/todo/web tools
