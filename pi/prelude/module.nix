@@ -63,6 +63,14 @@ in
             bun "$TEST_SCRIPT"
             touch "$out"
           '';
+
+          checks.pi-prelude-guardrails = pkgs.runCommand "pi-prelude-guardrails-test" {
+            nativeBuildInputs = [ pkgs.bun ];
+            TEST_SCRIPT = "${./tests/guardrails.test.ts}";
+          } ''
+            bun "$TEST_SCRIPT"
+            touch "$out"
+          '';
         }
       );
   };

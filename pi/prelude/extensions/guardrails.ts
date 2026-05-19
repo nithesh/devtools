@@ -20,7 +20,7 @@ interface GuardrailsConfig {
   confirm?: RuleGroup;
 }
 
-interface ResolvedRules {
+export interface ResolvedRules {
   exact: string[];
   prefix: string[];
 }
@@ -85,18 +85,18 @@ function normalizeCmd(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function splitCommandSegments(command: string): string[] {
+export function splitCommandSegments(command: string): string[] {
   return command
     .split(/&&|\|\||;|\||\n/g)
     .map((s) => normalizeCmd(s))
     .filter((s) => s.length > 0);
 }
 
-function matchesPrefix(segment: string, prefix: string): boolean {
+export function matchesPrefix(segment: string, prefix: string): boolean {
   return segment === prefix || segment.startsWith(`${prefix} `);
 }
 
-function matchRule(segment: string, rules: ResolvedRules): string | null {
+export function matchRule(segment: string, rules: ResolvedRules): string | null {
   const exact = rules.exact.find((r) => segment === normalizeCmd(r));
   if (exact) return exact;
 
