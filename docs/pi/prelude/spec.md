@@ -28,8 +28,7 @@
   - `tools-web.ts`
   - `guardrails.ts`
   - `status.ts`
-- Prompt templates: `review`, `fix`, `ship`, `explain`
-- Skills: `code-review`, `debugging`, `research`
+- Prompt templates/skills are optional and should be added only for repeated high-value workflows
 - Configurable via module options + project/user mode config files
 
 ### Out of scope (MVP)
@@ -238,7 +237,7 @@ For each extension feature `X`, create:
 - implement `tools-web.ts` lightweight backend
 
 ### Phase 4
-- polish prompts/skills and mode defaults
+- evaluate whether prompts/skills are justified by repeated workflows (optional)
 - tighten docs and tests
 
 ## 7.3 Acceptance gate per phase

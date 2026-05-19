@@ -2,6 +2,11 @@
 
 Only items not already captured in `docs/pi/prelude/spec.md` and feature specs.
 
+## Optional prompts/skills (only if repeated need emerges)
+
+- Add minimal prompt templates only after identifying high-frequency repeated prompts.
+- Add skills only when long workflows need stronger structure than tools+mode currently provide.
+
 ## Session/workflow
 
 - Handoff flow (`/handoff <goal>`) to move work into a fresh focused session.
