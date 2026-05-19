@@ -26,8 +26,11 @@
         ./zed/module.nix
         ./zellij/module.nix
         ./pi/module.nix
+        ./pi/prelude/module.nix
         ./agent-console/module.nix
       ];
+
+      devtools.pi.prelude.enable = true;
 
       perSystem =
         {
@@ -38,16 +41,6 @@
           config,
           ...
         }:
-        let
-          # Create a customized pi for our devShell
-          dev-pi = pkgs.callPackage ./pi/default.nix {
-            pi-unwrapped = config.packages.pi-unwrapped;
-            # Add your preferred devShell Pi configuration here:
-            # model = "anthropic/claude-sonnet-4-20250514";
-            # provider = "anthropic";
-            # piThemes = [ ./path/to/theme.json ];
-          };
-        in
         {
           devShells.default = pkgs.mkShell {
             buildInputs = [
@@ -56,13 +49,15 @@
               self'.packages.neovim
               self'.packages.zellij
               self'.packages.agent-console
-              dev-pi
+              self'.packages.pi-prelude
               inputs'.nil.packages.default
               self'.formatter
             ];
           };
 
           checks = {
+            pi-prelude-build = self'.packages.pi-prelude;
+
             agent-console-behavior = pkgs.runCommand "agent-console-behavior-test" {
               nativeBuildInputs = [ pkgs.bash pkgs.gnugrep pkgs.coreutils ];
               AGENT_CONSOLE_BIN = "${self'.packages.agent-console}/bin/agent-console";

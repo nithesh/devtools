@@ -1,19 +1,24 @@
 { config, lib, ... }:
 let
-  defaultExtensions = [ ];
+  defaultExtensions = [
+    ./extensions/mode.ts
+    ./extensions/status.ts
+  ];
 
   defaultPrompts = [ ];
 
   defaultSkills = [ ];
+
+  cfg = config.devtools.pi.prelude;
 in
 {
   options.devtools.pi.prelude = {
     enable = lib.mkEnableOption "pi-prelude wrapped Pi package";
 
     package = lib.mkOption {
-      type = lib.types.package;
-      default = config.packages.pi-unwrapped;
-      description = "Base pi package to wrap (usually pi-unwrapped)";
+      type = lib.types.nullOr lib.types.package;
+      default = null;
+      description = "Base pi package to wrap (defaults to pi-unwrapped)";
     };
 
     extensions = lib.mkOption {
@@ -43,13 +48,10 @@ in
 
   config = {
     perSystem = { config, pkgs, ... }:
-      let
-        cfg = config.devtools.pi.prelude;
-      in
       lib.mkIf cfg.enable {
         packages.pi-prelude = pkgs.callPackage ../default.nix (
           {
-            pi-unwrapped = cfg.package;
+            pi-unwrapped = if cfg.package != null then cfg.package else config.packages.pi-unwrapped;
             extensions = cfg.extensions;
             prompts = cfg.prompts;
             skills = cfg.skills;

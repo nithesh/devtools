@@ -59,7 +59,7 @@ let
     boolFlag "verbose" verbose;
 
   # Format and escape all args for shell
-  escapedArgs = concatStringsSep " " (map escapeShellArg (concatLists cliArgs));
+  escapedArgs = concatStringsSep " " (map escapeShellArg cliArgs);
 
 in
 pkgs.writeShellScriptBin "pi" ''
