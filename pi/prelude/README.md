@@ -5,8 +5,9 @@ Nix-first baseline for Pi in this repo, located at `pi/prelude/`.
 ## What it includes
 
 - Flake module + package wiring for an opinionated Pi profile
+- A dedicated derivation `packages.pi-prelude-package` containing only `pi/prelude/`
+- Pi loads prelude resources from that package path via a single `--extension <package-dir>` source
 - Spec-first workflow docs under `docs/pi/prelude/`
-- Runtime artifacts (extensions/prompts/skills) are added incrementally as implemented
 
 ## Flake module usage
 
@@ -19,6 +20,7 @@ Nix-first baseline for Pi in this repo, located at `pi/prelude/`.
 
     # optional overrides
     # devtools.pi.prelude.extraArgs.model = "anthropic/claude-sonnet-4-5";
+    # devtools.pi.prelude.extraExtensionSources = [ ./my-extension.ts ];
   };
 }
 ```

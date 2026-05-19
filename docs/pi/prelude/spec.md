@@ -69,17 +69,16 @@
 - `pi/prelude/module.nix` defines:
   - `devtools.pi.prelude.enable`
   - `devtools.pi.prelude.package` (base Pi package)
-  - `devtools.pi.prelude.extensions`
-  - `devtools.pi.prelude.prompts`
-  - `devtools.pi.prelude.skills`
+  - `devtools.pi.prelude.extraExtensionSources`
   - `devtools.pi.prelude.extraArgs`
-- Produces `packages.pi-prelude` via `pi/default.nix` wrapper.
+- Produces:
+  - `packages.pi-prelude-package` (derivation containing only `pi/prelude/`)
+  - `packages.pi-prelude` via `pi/default.nix` wrapper.
 
 ## 4.2 Runtime assets
 
-- Extensions loaded via wrapper `--extension`
-- Prompts via `--prompt-template`
-- Skills via `--skill`
+- Prelude resources are loaded from a single package source path via wrapper `--extension <pi-prelude-package>`
+- Extra sources can be appended via `devtools.pi.prelude.extraExtensionSources`
 - Optional secondary packaging in `pi/prelude/package.json`
 
 ## 4.3 Configuration layering (mode configs)
@@ -269,9 +268,8 @@ Resolved:
 
 Still open:
 1. Final mode config path naming (`devtools-pi` vs `pi-prelude` namespace for files/dirs)
-2. Exact default hotkeys (avoid collisions with existing keymap)
-3. Web backend order/fallbacks and required runtime deps in Nix
-4. Protected path defaults and project overrides
+2. Web backend order/fallbacks and required runtime deps in Nix
+3. Protected path defaults and project overrides
 
 ---
 

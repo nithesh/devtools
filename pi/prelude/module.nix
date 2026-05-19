@@ -1,14 +1,5 @@
 { config, lib, ... }:
 let
-  defaultExtensions = [
-    ./extensions/mode.ts
-    ./extensions/status.ts
-  ];
-
-  defaultPrompts = [ ];
-
-  defaultSkills = [ ];
-
   cfg = config.devtools.pi.prelude;
 in
 {
@@ -21,22 +12,10 @@ in
       description = "Base pi package to wrap (defaults to pi-unwrapped)";
     };
 
-    extensions = lib.mkOption {
+    extraExtensionSources = lib.mkOption {
       type = lib.types.listOf lib.types.path;
-      default = defaultExtensions;
-      description = "Prelude extension paths";
-    };
-
-    prompts = lib.mkOption {
-      type = lib.types.listOf lib.types.path;
-      default = defaultPrompts;
-      description = "Prelude prompt template paths";
-    };
-
-    skills = lib.mkOption {
-      type = lib.types.listOf lib.types.path;
-      default = defaultSkills;
-      description = "Prelude skill paths";
+      default = [ ];
+      description = "Additional extension/package sources passed via --extension";
     };
 
     extraArgs = lib.mkOption {
@@ -48,16 +27,24 @@ in
 
   config = {
     perSystem = { config, pkgs, ... }:
-      lib.mkIf cfg.enable {
-        packages.pi-prelude = pkgs.callPackage ../default.nix (
-          {
-            pi-unwrapped = if cfg.package != null then cfg.package else config.packages.pi-unwrapped;
-            extensions = cfg.extensions;
-            prompts = cfg.prompts;
-            skills = cfg.skills;
-          }
-          // cfg.extraArgs
-        );
-      };
+      lib.mkIf cfg.enable (
+        let
+          preludePackage = pkgs.runCommand "pi-prelude-package" { } ''
+            mkdir -p "$out"
+            cp -R ${./.}/. "$out/"
+          '';
+        in
+        {
+          packages.pi-prelude-package = preludePackage;
+
+          packages.pi-prelude = pkgs.callPackage ../default.nix (
+            {
+              pi-unwrapped = if cfg.package != null then cfg.package else config.packages.pi-unwrapped;
+              extensions = [ preludePackage ] ++ cfg.extraExtensionSources;
+            }
+            // cfg.extraArgs
+          );
+        }
+      );
   };
 }
