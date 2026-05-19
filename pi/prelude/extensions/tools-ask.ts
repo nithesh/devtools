@@ -81,67 +81,91 @@ export default function toolsAsk(pi: ExtensionAPI) {
         allowOther: q.allowOther !== false,
       }));
 
-      const answers: Answer[] = [];
+      const answers = new Map<string, Answer>();
+      let i = 0;
 
-      for (const q of questions) {
+      while (true) {
+        const q = questions[i];
         if (!q.options || q.options.length === 0) {
           return errorResult(`Error: question '${q.id}' has no options.`, questions);
         }
 
-        const options = q.options.map((opt, idx) => ({
-          value: String(idx + 1),
-          label: `${idx + 1}. ${opt.label}`,
-          description: opt.description,
-        }));
+        const optionLabels = q.options.map((opt, idx) => `${idx + 1}. ${opt.label}`);
+        const otherLabel = "Other (type custom answer)";
+        const prevLabel = "← Previous question";
+        const nextLabel = "→ Next question";
+        const submitLabel = "✓ Submit answers";
 
-        if (q.allowOther) {
-          options.push({ value: "other", label: "Other (type custom answer)" });
-        }
+        const selectItems = [
+          ...optionLabels,
+          ...(q.allowOther ? [otherLabel] : []),
+          ...(i > 0 ? [prevLabel] : []),
+          ...(i < questions.length - 1 ? [nextLabel] : []),
+          submitLabel,
+        ];
 
-        const picked = await ctx.ui.select(`${q.label}: ${q.prompt}`, options);
+        const answeredCount = Array.from(answers.keys()).length;
+        const picked = await ctx.ui.select(
+          `${q.label} (${i + 1}/${questions.length}, answered ${answeredCount}/${questions.length}): ${q.prompt}`,
+          selectItems,
+        );
+
         if (!picked) {
           return {
             content: [{ type: "text", text: "User cancelled question flow." }],
-            details: { questions, answers, cancelled: true } satisfies AskDetails,
+            details: { questions, answers: Array.from(answers.values()), cancelled: true } satisfies AskDetails,
           };
         }
 
-        if (picked === "other") {
-          const custom = await ctx.ui.input(`${q.label}: Enter custom answer`);
-          if (custom === null) {
-            return {
-              content: [{ type: "text", text: "User cancelled question flow." }],
-              details: { questions, answers, cancelled: true } satisfies AskDetails,
-            };
-          }
-          const value = custom.trim() || "(empty)";
-          answers.push({ id: q.id, value, label: value, wasCustom: true });
+        if (picked === prevLabel) {
+          i = Math.max(0, i - 1);
           continue;
         }
 
-        const index = Number(picked) - 1;
+        if (picked === nextLabel) {
+          i = Math.min(questions.length - 1, i + 1);
+          continue;
+        }
+
+        if (picked === submitLabel) {
+          const finalized = Array.from(answers.values());
+          const lines = finalized.length
+            ? finalized.map((a) =>
+                a.wasCustom ? `${a.id}: user wrote '${a.label}'` : `${a.id}: user selected ${a.index}. ${a.label}`,
+              )
+            : ["No answers provided."];
+
+          return {
+            content: [{ type: "text", text: lines.join("\n") }],
+            details: { questions, answers: finalized, cancelled: false } satisfies AskDetails,
+          };
+        }
+
+        if (picked === otherLabel) {
+          const custom = await ctx.ui.input(`${q.label}: Enter custom answer`);
+          if (custom === null) continue;
+          const value = custom.trim() || "(empty)";
+          answers.set(q.id, { id: q.id, value, label: value, wasCustom: true });
+          if (i < questions.length - 1) i += 1;
+          continue;
+        }
+
+        const index = optionLabels.indexOf(picked);
         const selected = q.options[index];
-        if (!selected) {
+        if (index < 0 || !selected) {
           return errorResult(`Error: invalid selection for question '${q.id}'.`, questions);
         }
 
-        answers.push({
+        answers.set(q.id, {
           id: q.id,
           value: selected.value,
           label: selected.label,
           wasCustom: false,
           index: index + 1,
         });
+
+        if (i < questions.length - 1) i += 1;
       }
-
-      const lines = answers.map((a) =>
-        a.wasCustom ? `${a.id}: user wrote '${a.label}'` : `${a.id}: user selected ${a.index}. ${a.label}`,
-      );
-
-      return {
-        content: [{ type: "text", text: lines.join("\n") }],
-        details: { questions, answers, cancelled: false } satisfies AskDetails,
-      };
     },
   });
 }
