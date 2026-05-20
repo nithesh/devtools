@@ -83,11 +83,6 @@ export default function statusExtension(pi: ExtensionAPI) {
     history.push(ratio);
     if (history.length > 12) history.shift();
 
-    const mode = getMode(ctx);
-    const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "no-model";
-    const think = pi.getThinkingLevel();
-    const cost = getCost(ctx);
-
     fallbackStatus(ctx, used, max, pct);
 
     if (footerDisabled) return;
@@ -134,6 +129,11 @@ export default function statusExtension(pi: ExtensionAPI) {
                 : used >= 100_000
                   ? theme.fg("warning", ctxText)
                   : theme.fg("muted", ctxText);
+
+            const mode = getMode(ctx);
+            const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "no-model";
+            const think = pi.getThinkingLevel();
+            const cost = getCost(ctx);
 
             const modeChip = theme.bg("selectedBg", theme.fg("text", ` mode:${mode} `));
             const gitChip = theme.fg("muted", ` git:${git} `);

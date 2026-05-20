@@ -130,6 +130,7 @@ export default function modeExtension(pi: ExtensionAPI) {
 
     activeModeName = name;
     activeMode = mode;
+    pi.appendEntry("mode-state", { name: activeModeName });
     updateStatus(ctx);
   };
 
