@@ -30,8 +30,6 @@
         ./agent-console/module.nix
       ];
 
-      devtools.pi.prelude.enable = true;
-
       perSystem =
         {
           system,
@@ -88,7 +86,7 @@
 
       flake = {
         homeManagerModules.pi = import ./pi/home-module.nix;
-        flakeModules.pi = import ./pi/flake-module.nix;
+        flakeModules.pi = import ./pi/module.nix;
         flakeModules.pi-prelude = import ./pi/prelude/module.nix;
         flakeModules.agent-console = import ./agent-console/flake-module.nix;
       };

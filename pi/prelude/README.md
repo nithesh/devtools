@@ -16,7 +16,7 @@ Nix-first baseline for Pi in this repo, located at `pi/prelude/`.
   imports = [ inputs.devtools.flakeModules.pi-prelude ];
 
   perSystem = { config, ... }: {
-    devtools.pi.prelude.enable = true;
+    # auto-enabled when module is imported
 
     # optional overrides
     # devtools.pi.prelude.extraArgs.model = "anthropic/claude-sonnet-4-5";

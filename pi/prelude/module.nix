@@ -4,7 +4,7 @@ let
 in
 {
   options.devtools.pi.prelude = {
-    enable = lib.mkEnableOption "pi-prelude wrapped Pi package";
+    enable = lib.mkEnableOption "pi-prelude wrapped Pi package" // { default = true; };
 
     checks.enable = lib.mkOption {
       type = lib.types.bool;
