@@ -1,5 +1,4 @@
 {
-  colorschemes.onedark.enable = true;
   plugins = {
     bufferline.enable = true;
     indent-blankline.enable = true;

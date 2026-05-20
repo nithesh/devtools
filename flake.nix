@@ -86,6 +86,7 @@
 
       flake = {
         homeManagerModules.pi = import ./pi/home-module.nix;
+        flakeModules.neovim = import ./neovim/module.nix;
         flakeModules.pi = import ./pi/module.nix;
         flakeModules.pi-prelude = import ./pi/prelude/module.nix;
         flakeModules.agent-console = import ./agent-console/flake-module.nix;
