@@ -202,6 +202,18 @@ exec /nix/store/...-pi-unwrapped/bin/pi \
 
 ### Flake module (`devtools.pi`)
 
+`devtools.pi.packageExtensions` is a **per-system list of derivations** (similar in spirit to `pythonPackages` / `vscodeExtensions`) that are written to project `.pi/settings.json` when `devtools.pi.managedSettings.enable = true`.
+
+Example:
+
+```nix
+perSystem = { config, ... }: {
+  devtools.pi.packageExtensions = [
+    config.packages.rpiv-rpiv-web-tools
+  ];
+};
+```
+
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enable` | `bool` | `false` | Enable the pi wrapper package |
@@ -225,7 +237,42 @@ exec /nix/store/...-pi-unwrapped/bin/pi \
 | `appendSystemPrompt` | `nullOr str` | `null` | `--append-system-prompt` (appended to prompt) |
 | `offline` | `bool` | `false` | `--offline` |
 | `verbose` | `bool` | `false` | `--verbose` |
+| `managedSettings.enable` | `bool` | `false` | Auto-manage project `.pi/settings.json` on shell entry (via `pi-manage-settings`) |
+| `managedSettings.packages` | `listOf (path\|str)` | `[]` | Extra non-derivation package sources (e.g. `npm:...`, `git:...`, local path) |
+| `managedSettings.extra` | `attrs` | `{}` | Extra JSON merged into generated `.pi/settings.json` |
 
+### Per-system options (`perSystem.devtools.pi`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `packageExtensions` | `listOf package` | `[]` | Pi package derivations to include in generated `.pi/settings.json` |
+
+### RPIV provider module (`devtools.pi.rpiv`)
+
+This repo ships an optional provider module at `pi/rpiv/module.nix` that builds packages from `juicesharp/rpiv-mono` and exposes derivations you can select.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | `bool` | `false` | Enable RPIV package provider |
+| `packages` | `listOf str` | `["rpiv-web-tools"]` | Package names from `rpiv-mono/packages/` to expose |
+
+Example:
+
+```nix
+# top-level flake-parts config
+
+devtools.pi.rpiv = {
+  enable = true;
+  packages = [ "rpiv-web-tools" "rpiv-todo" ];
+};
+
+perSystem = { config, ... }: {
+  devtools.pi.packageExtensions = [
+    config.packages.rpiv-rpiv-web-tools
+    config.packages.rpiv-rpiv-todo
+  ];
+};
+```
 
 ### Home Manager module (`programs.pi`)
 

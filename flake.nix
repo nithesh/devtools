@@ -26,6 +26,7 @@
         ./zed/module.nix
         ./zellij/module.nix
         ./pi/module.nix
+        ./pi/rpiv/module.nix
         ./pi/prelude/module.nix
         ./agent-console/module.nix
       ];
@@ -42,11 +43,7 @@
         let
           dev-pi = pkgs.writeShellScriptBin "pi" ''
             set -euo pipefail
-
-            ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-            PRELUDE_PATH="$ROOT/pi/prelude"
-
-            exec ${self'.packages.pi-unwrapped}/bin/pi --extension "$PRELUDE_PATH" "$@"
+            exec ${self'.packages.pi-unwrapped}/bin/pi "$@"
           '';
         in
         {
@@ -57,10 +54,14 @@
               self'.packages.neovim
               self'.packages.zellij
               self'.packages.agent-console
+              self'.packages.pi-manage-settings
               dev-pi
               inputs'.nil.packages.default
               self'.formatter
             ];
+            shellHook = ''
+              pi-manage-settings
+            '';
           };
 
           checks = {
@@ -83,6 +84,8 @@
 
           formatter = pkgs.alejandra;
         };
+
+      devtools.pi.rpiv.enable = true;
 
       flake = {
         homeManagerModules.pi = import ./pi/home-module.nix;
