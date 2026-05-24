@@ -21,19 +21,10 @@ in
             name:
             {
               name = "rpiv-${name}";
-              value = pkgs.runCommand "rpiv-${name}-package" { } ''
-                cp -R ${rpivMono}/lib/node_modules/rpiv-mono/packages/${name} "$out"
-                chmod -R u+w "$out"
-
-                mkdir -p "$out/node_modules/@juicesharp"
-                cp -R ${rpivMono}/lib/node_modules/rpiv-mono/packages/rpiv-config "$out/node_modules/@juicesharp/rpiv-config"
-                chmod -R u+w "$out/node_modules/@juicesharp/rpiv-config"
-
-                find "$out" -type f \( -name '*.ts' -o -name '*.js' -o -name '*.json' \) -print0 \
-                  | xargs -0 sed -i \
-                    -e 's#@earendil-works/pi-coding-agent#@mariozechner/pi-coding-agent#g' \
-                    -e 's#@earendil-works/pi-tui#@mariozechner/pi-tui#g'
-              '';
+              value = pkgs.symlinkJoin {
+                name = "rpiv-${name}-package";
+                paths = [ "${rpivMono}/lib/node_modules/rpiv-mono/packages/${name}" ];
+              };
             }
           ) cfg.packages);
           rpivExtensionDrvs = map (name: rpivPackages."rpiv-${name}") cfg.packages;
