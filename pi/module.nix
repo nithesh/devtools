@@ -1,5 +1,5 @@
 # Unified pi module: base package + configurable wrapper options
-{ config, lib, flake-parts-lib, ... }:
+{ config, lib, flake-parts-lib, inputs, ... }:
 let
   rootCfg = config.devtools.pi;
 in
@@ -8,6 +8,12 @@ in
     ./prelude/module.nix
   ];
   options.perSystem = flake-parts-lib.mkPerSystemOption ({ ... }: {
+    options.devtools.pi.basePackage = lib.mkOption {
+      type = lib.types.nullOr lib.types.package;
+      default = null;
+      description = "Base pi-unwrapped package to wrap for this system.";
+    };
+
     options.devtools.pi.piPackages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
       default = [ ];
@@ -25,8 +31,9 @@ in
       enable = lib.mkEnableOption "Enable configurable Pi wrapper package";
 
       package = lib.mkOption {
-        type = lib.types.package;
-        description = "Base pi-unwrapped package to wrap";
+        type = lib.types.nullOr lib.types.package;
+        default = null;
+        description = "Deprecated root-level base package override. Prefer perSystem.devtools.pi.basePackage.";
       };
 
       model = lib.mkOption { type = lib.types.nullOr lib.types.str; default = null; description = "Override default model (--model)"; };
@@ -72,16 +79,32 @@ in
       let
         piPackageSet = import ./pi-packages.nix { inherit pkgs lib; };
 
-        pi-unwrapped = inputs'.llm-agents.packages.pi;
+        defaultFromDevtoolsInput =
+          if inputs ? devtools then inputs.devtools.packages.${pkgs.system}.pi-unwrapped else null;
+
+        resolvedBasePackage =
+          if config.devtools.pi.basePackage != null then config.devtools.pi.basePackage
+          else if rootCfg.package != null then rootCfg.package
+          else if defaultFromDevtoolsInput != null then defaultFromDevtoolsInput
+          else if inputs' ? llm-agents then inputs'.llm-agents.packages.pi
+          else throw "devtools.flakeModules.pi: unable to resolve base Pi package. Set perSystem.devtools.pi.basePackage (recommended).";
+
         cfg = rootCfg // {
-          package = if rootCfg.package or null != null then rootCfg.package else pi-unwrapped;
+          package = resolvedBasePackage;
           managedSettings = (rootCfg.managedSettings or { }) // {
             enable = (rootCfg.managedSettings.enable or false);
             packages = (rootCfg.managedSettings.packages or [ ]);
             extra = (rootCfg.managedSettings.extra or { });
           };
         };
-        wrapperArgs = lib.filterAttrs (name: _value: !(builtins.elem name [ "enable" "package" "managedSettings" ])) cfg;
+
+        wrapperArgs = {
+          inherit (cfg)
+            model provider thinking models extensions skills prompts tools
+            noBuiltinTools noTools noExtensions noSkills noThemes noPrompts
+            noContextFiles systemPrompt appendSystemPrompt offline verbose;
+          piThemes = cfg.themes;
+        };
 
         managedPackageSources = config.devtools.pi.piPackages ++ cfg.managedSettings.packages;
 
@@ -106,8 +129,8 @@ in
         devtools.pi.availablePackages = piPackageSet;
 
         packages = {
-          pi-unwrapped = pi-unwrapped;
-          pi = if cfg.enable then pkgs.callPackage ./default.nix ({ pi-unwrapped = cfg.package; } // wrapperArgs) else pi-unwrapped;
+          pi-unwrapped = resolvedBasePackage;
+          pi = if cfg.enable then pkgs.callPackage ./default.nix ({ pi-unwrapped = resolvedBasePackage; } // wrapperArgs) else resolvedBasePackage;
           pi-manage-settings = manageSettingsScript;
         };
       };
