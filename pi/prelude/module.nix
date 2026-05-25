@@ -4,7 +4,7 @@ let
 in
 {
   options.devtools.pi.prelude = {
-    enable = lib.mkEnableOption "pi-prelude wrapped Pi package" // { default = true; };
+    enable = lib.mkEnableOption "pi prelude extensions" // { default = true; };
 
     checks.enable = lib.mkOption {
       type = lib.types.bool;
@@ -12,94 +12,107 @@ in
       description = "Enable pi-prelude check derivations.";
     };
 
-    package = lib.mkOption {
-      type = lib.types.nullOr lib.types.package;
-      default = null;
-      description = "Base pi package to wrap (defaults to pi-unwrapped)";
-    };
-
-    extraExtensionSources = lib.mkOption {
-      type = lib.types.listOf lib.types.path;
-      default = [ ];
-      description = "Additional extension/package sources passed via --extension";
-    };
-
-    extraArgs = lib.mkOption {
-      type = lib.types.attrs;
-      default = { };
-      description = "Extra args passed to pi/default.nix wrapper";
+    features = {
+      mode.enable = lib.mkOption { type = lib.types.bool; default = true; };
+      status.enable = lib.mkOption { type = lib.types.bool; default = true; };
+      guardrails.enable = lib.mkOption { type = lib.types.bool; default = true; };
+      tools.ask.enable = lib.mkOption { type = lib.types.bool; default = true; };
+      tools.todo.enable = lib.mkOption { type = lib.types.bool; default = true; };
+      tools.web.enable = lib.mkOption { type = lib.types.bool; default = true; };
     };
   };
 
   config = {
     perSystem = { config, pkgs, ... }:
-      lib.mkIf cfg.enable (
-        let
-          preludePackage = pkgs.runCommand "pi-prelude-package" { } ''
-            mkdir -p "$out"
-            cp -R ${./.}/. "$out/"
-          '';
-        in
-        {
-          packages.pi-prelude-package = preludePackage;
+      let
+        disabledPreludeExtensions =
+          (lib.optional (!cfg.features.mode.enable) "mode.ts")
+          ++ (lib.optional (!cfg.features.status.enable) "status.ts")
+          ++ (lib.optional (!cfg.features.guardrails.enable) "guardrails.ts")
+          ++ (lib.optional (!cfg.features.tools.ask.enable) "tools-ask.ts")
+          ++ (lib.optional (!cfg.features.tools.todo.enable) "tools-todo.ts")
+          ++ (lib.optional (!cfg.features.tools.web.enable) "tools-web.ts");
 
-          packages.pi-prelude = pkgs.callPackage ../default.nix (
-            {
-              pi-unwrapped = if cfg.package != null then cfg.package else config.packages.pi-unwrapped;
-              extensions = [ preludePackage ] ++ cfg.extraExtensionSources;
-              runtimeBins = [ pkgs.ddgr pkgs.curl ];
-            }
-            // cfg.extraArgs
-          );
-        }
-        // lib.optionalAttrs cfg.checks.enable {
-          checks.pi-prelude-build = config.packages.pi-prelude;
+        preludePackage = pkgs.runCommand "pi-prelude-package" { } ''
+          mkdir -p "$out"
+          cp -R ${./.}/. "$out/"
+          chmod -R u+w "$out"
+          ${lib.concatMapStringsSep "\n" (file: "rm -f \"$out/extensions/${file}\"") disabledPreludeExtensions}
+        '';
 
-          checks.pi-prelude-contract = pkgs.runCommand "pi-prelude-contract-test" {
-            nativeBuildInputs = [ pkgs.bun ];
-            PI_PRELUDE_BIN = "${config.packages.pi-prelude}/bin/pi";
-            PI_PRELUDE_PACKAGE_DIR = "${config.packages.pi-prelude-package}";
-            TEST_SCRIPT = "${./tests/contract.ts}";
-          } ''
-            bun "$TEST_SCRIPT"
-            touch "$out"
-          '';
+        preludeArgs = lib.concatStringsSep " " (
+          lib.filter (s: s != "") [
+            (if cfg.enable && cfg.features.mode.enable then "--extension \"$ROOT/pi/prelude/extensions/mode.ts\"" else "")
+            (if cfg.enable && cfg.features.status.enable then "--extension \"$ROOT/pi/prelude/extensions/status.ts\"" else "")
+            (if cfg.enable && cfg.features.guardrails.enable then "--extension \"$ROOT/pi/prelude/extensions/guardrails.ts\"" else "")
+            (if cfg.enable && cfg.features.tools.ask.enable then "--extension \"$ROOT/pi/prelude/extensions/tools-ask.ts\"" else "")
+            (if cfg.enable && cfg.features.tools.todo.enable then "--extension \"$ROOT/pi/prelude/extensions/tools-todo.ts\"" else "")
+            (if cfg.enable && cfg.features.tools.web.enable then "--extension \"$ROOT/pi/prelude/extensions/tools-web.ts\"" else "")
+          ]
+        );
 
-          checks.pi-prelude-guardrails = pkgs.runCommand "pi-prelude-guardrails-test" {
-            nativeBuildInputs = [ pkgs.bun ];
-            TEST_SCRIPT = "${./tests/guardrails.test.ts}";
-          } ''
-            bun "$TEST_SCRIPT"
-            touch "$out"
-          '';
+        piDev = pkgs.writeShellScriptBin "pi" ''
+          set -euo pipefail
+          ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+          exec ${config.packages.pi-unwrapped}/bin/pi ${preludeArgs} "$@"
+        '';
 
-          checks.pi-prelude-status-isolation = pkgs.runCommand "pi-prelude-status-isolation-test" {
-            nativeBuildInputs = [ pkgs.bun ];
-            TEST_SCRIPT = "${./tests/status-isolation.test.ts}";
-            STATUS_SOURCE_PATH = "${./extensions/status.ts}";
-          } ''
-            bun "$TEST_SCRIPT"
-            touch "$out"
-          '';
+        piWithPreludeForChecks = pkgs.callPackage ../default.nix {
+          pi-unwrapped = config.packages.pi-unwrapped;
+          extensions = [ preludePackage ];
+          runtimeBins = [ pkgs.ddgr pkgs.curl ];
+        };
+      in
+      {
+        packages.pi-dev = piDev;
+      }
+      // lib.optionalAttrs (cfg.enable && cfg.checks.enable) {
+        checks.pi-prelude-build = piWithPreludeForChecks;
 
-          checks.pi-prelude-ask-isolation = pkgs.runCommand "pi-prelude-ask-isolation-test" {
-            nativeBuildInputs = [ pkgs.bun ];
-            TEST_SCRIPT = "${./tests/ask-isolation.test.ts}";
-            ASK_SOURCE_PATH = "${./extensions/tools-ask.ts}";
-          } ''
-            bun "$TEST_SCRIPT"
-            touch "$out"
-          '';
+        checks.pi-prelude-contract = pkgs.runCommand "pi-prelude-contract-test" {
+          nativeBuildInputs = [ pkgs.bun ];
+          PI_PRELUDE_BIN = "${piWithPreludeForChecks}/bin/pi";
+          PI_PRELUDE_PACKAGE_DIR = "${preludePackage}";
+          TEST_SCRIPT = "${./tests/contract.ts}";
+        } ''
+          bun "$TEST_SCRIPT"
+          touch "$out"
+        '';
 
-          checks.pi-prelude-guardrails-isolation = pkgs.runCommand "pi-prelude-guardrails-isolation-test" {
-            nativeBuildInputs = [ pkgs.bun ];
-            TEST_SCRIPT = "${./tests/guardrails-isolation.test.ts}";
-            GUARDRAILS_SOURCE_PATH = "${./extensions/guardrails.ts}";
-          } ''
-            bun "$TEST_SCRIPT"
-            touch "$out"
-          '';
-        }
-      );
+        checks.pi-prelude-guardrails = pkgs.runCommand "pi-prelude-guardrails-test" {
+          nativeBuildInputs = [ pkgs.bun ];
+          TEST_SCRIPT = "${./tests/guardrails.test.ts}";
+        } ''
+          bun "$TEST_SCRIPT"
+          touch "$out"
+        '';
+
+        checks.pi-prelude-status-isolation = pkgs.runCommand "pi-prelude-status-isolation-test" {
+          nativeBuildInputs = [ pkgs.bun ];
+          TEST_SCRIPT = "${./tests/status-isolation.test.ts}";
+          STATUS_SOURCE_PATH = "${./extensions/status.ts}";
+        } ''
+          bun "$TEST_SCRIPT"
+          touch "$out"
+        '';
+
+        checks.pi-prelude-ask-isolation = pkgs.runCommand "pi-prelude-ask-isolation-test" {
+          nativeBuildInputs = [ pkgs.bun ];
+          TEST_SCRIPT = "${./tests/ask-isolation.test.ts}";
+          ASK_SOURCE_PATH = "${./extensions/tools-ask.ts}";
+        } ''
+          bun "$TEST_SCRIPT"
+          touch "$out"
+        '';
+
+        checks.pi-prelude-guardrails-isolation = pkgs.runCommand "pi-prelude-guardrails-isolation-test" {
+          nativeBuildInputs = [ pkgs.bun ];
+          TEST_SCRIPT = "${./tests/guardrails-isolation.test.ts}";
+          GUARDRAILS_SOURCE_PATH = "${./extensions/guardrails.ts}";
+        } ''
+          bun "$TEST_SCRIPT"
+          touch "$out"
+        '';
+      };
   };
 }

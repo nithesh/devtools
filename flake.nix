@@ -40,12 +40,6 @@
           config,
           ...
         }:
-        let
-          dev-pi = pkgs.writeShellScriptBin "pi" ''
-            set -euo pipefail
-            exec ${self'.packages.pi-unwrapped}/bin/pi "$@"
-          '';
-        in
         {
           devtools.pi.packageExtensions = [
             config.packages.rpiv-rpiv-web-tools
@@ -58,13 +52,12 @@
               self'.packages.neovim
               self'.packages.zellij
               self'.packages.agent-console
-              self'.packages.pi-manage-settings
-              dev-pi
+              self'.packages.pi-dev
               inputs'.nil.packages.default
               self'.formatter
             ];
             shellHook = ''
-              pi-manage-settings
+              ${self'.packages.pi-manage-settings}/bin/pi-manage-settings
             '';
           };
 
@@ -90,6 +83,7 @@
         };
 
       devtools.pi.managedSettings.enable = true;
+      devtools.pi.prelude.features.tools.web.enable = false;
 
       flake = {
         homeManagerModules.pi = import ./pi/home-module.nix;
