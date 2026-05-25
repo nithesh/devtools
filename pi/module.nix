@@ -5,15 +5,19 @@ let
 in
 {
   imports = [
-    ./rpiv/module.nix
-    ./whatsapp/module.nix
     ./prelude/module.nix
   ];
   options.perSystem = flake-parts-lib.mkPerSystemOption ({ ... }: {
-    options.devtools.pi.packageExtensions = lib.mkOption {
+    options.devtools.pi.piPackages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
       default = [ ];
       description = "Pi package derivations to include in generated project .pi/settings.json.";
+    };
+
+    options.devtools.pi.availablePackages = lib.mkOption {
+      type = lib.types.attrs;
+      readOnly = true;
+      description = "Namespaced Pi package set (similar to pythonPackages/vimPlugins).";
     };
   });
   options = {
@@ -66,6 +70,8 @@ in
   config = {
     perSystem = { config, pkgs, inputs', ... }:
       let
+        piPackageSet = import ./pi-packages.nix { inherit pkgs lib; };
+
         pi-unwrapped = inputs'.llm-agents.packages.pi;
         cfg = rootCfg // {
           package = if rootCfg.package or null != null then rootCfg.package else pi-unwrapped;
@@ -77,7 +83,7 @@ in
         };
         wrapperArgs = lib.filterAttrs (name: _value: !(builtins.elem name [ "enable" "package" "managedSettings" ])) cfg;
 
-        managedPackageSources = config.devtools.pi.packageExtensions ++ cfg.managedSettings.packages;
+        managedPackageSources = config.devtools.pi.piPackages ++ cfg.managedSettings.packages;
 
         managedSettingsJson = builtins.toJSON (cfg.managedSettings.extra // {
           packages = map toString managedPackageSources;
@@ -97,9 +103,13 @@ in
         '';
       in
       {
-        packages.pi-unwrapped = pi-unwrapped;
-        packages.pi = if cfg.enable then pkgs.callPackage ./default.nix ({ pi-unwrapped = cfg.package; } // wrapperArgs) else pi-unwrapped;
-        packages.pi-manage-settings = manageSettingsScript;
+        devtools.pi.availablePackages = piPackageSet;
+
+        packages = {
+          pi-unwrapped = pi-unwrapped;
+          pi = if cfg.enable then pkgs.callPackage ./default.nix ({ pi-unwrapped = cfg.package; } // wrapperArgs) else pi-unwrapped;
+          pi-manage-settings = manageSettingsScript;
+        };
       };
   };
 }

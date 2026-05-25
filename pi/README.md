@@ -202,14 +202,14 @@ exec /nix/store/...-pi-unwrapped/bin/pi \
 
 ### Flake module (`devtools.pi`)
 
-`devtools.pi.packageExtensions` is a **per-system list of derivations** (similar in spirit to `pythonPackages` / `vscodeExtensions`) that are written to project `.pi/settings.json` when `devtools.pi.managedSettings.enable = true`.
+`devtools.pi.piPackages` is a **per-system list of derivations** (similar in spirit to `pythonPackages` / `vscodeExtensions`) that are written to project `.pi/settings.json` when `devtools.pi.managedSettings.enable = true`.
 
 Example:
 
 ```nix
 perSystem = { config, ... }: {
-  devtools.pi.packageExtensions = [
-    config.packages.rpiv-rpiv-web-tools
+  devtools.pi.piPackages = [
+    config.devtools.pi.availablePackages.rpiv."web-tools"
   ];
 };
 ```
@@ -245,19 +245,19 @@ perSystem = { config, ... }: {
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `packageExtensions` | `listOf package` | `[]` | Pi package derivations to include in generated `.pi/settings.json` |
+| `piPackages` | `listOf package` | `[]` | Pi package derivations to include in generated `.pi/settings.json` |
 
-### RPIV provider module
+### Built-in Pi package set
 
-This repo ships a provider module at `pi/rpiv/module.nix` that exposes derivations from `juicesharp/rpiv-mono` under `config.packages.rpiv-*`.
+This repo exposes a namespaced Pi package set via `devtools.pi.availablePackages` from `pi/module.nix` (for example `rpiv."web-tools"`, `rpiv.todo`, `rpiv.mono`, and `whatsappPi`).
 
-Select what you want via `devtools.pi.packageExtensions`:
+Select what you want via `devtools.pi.piPackages`:
 
 ```nix
 perSystem = { config, ... }: {
-  devtools.pi.packageExtensions = [
-    config.packages.rpiv-rpiv-web-tools
-    config.packages.rpiv-rpiv-todo
+  devtools.pi.piPackages = [
+    config.devtools.pi.availablePackages.rpiv."web-tools"
+    config.devtools.pi.availablePackages.rpiv.todo
   ];
 };
 ```

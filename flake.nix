@@ -40,11 +40,11 @@
         }:
         {
           devtools.pi = {
-            packageExtensions = [
-              config.packages.rpiv-rpiv-web-tools
-              config.packages.rpiv-rpiv-todo
-              config.packages.rpiv-rpiv-ask-user-question
-              config.packages.whatsapp-pi
+            piPackages = with config.devtools.pi.availablePackages; [
+              rpiv."web-tools"
+              rpiv.todo
+              rpiv."ask-user-question"
+              whatsappPi
             ];
           };
 
