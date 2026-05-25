@@ -247,25 +247,13 @@ perSystem = { config, ... }: {
 |--------|------|---------|-------------|
 | `packageExtensions` | `listOf package` | `[]` | Pi package derivations to include in generated `.pi/settings.json` |
 
-### RPIV provider module (`devtools.pi.rpiv`)
+### RPIV provider module
 
-This repo ships an optional provider module at `pi/rpiv/module.nix` that builds packages from `juicesharp/rpiv-mono` and exposes derivations you can select.
+This repo ships a provider module at `pi/rpiv/module.nix` that exposes derivations from `juicesharp/rpiv-mono` under `config.packages.rpiv-*`.
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enable` | `bool` | `false` | Enable RPIV package provider |
-| `packages` | `listOf str` | `["rpiv-web-tools"]` | Package names from `rpiv-mono/packages/` to expose |
-
-Example:
+Select what you want via `devtools.pi.packageExtensions`:
 
 ```nix
-# top-level flake-parts config
-
-devtools.pi.rpiv = {
-  enable = true;
-  packages = [ "rpiv-web-tools" "rpiv-todo" ];
-};
-
 perSystem = { config, ... }: {
   devtools.pi.packageExtensions = [
     config.packages.rpiv-rpiv-web-tools

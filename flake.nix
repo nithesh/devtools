@@ -47,6 +47,10 @@
           '';
         in
         {
+          devtools.pi.packageExtensions = [
+            config.packages.rpiv-rpiv-web-tools
+          ];
+
           devShells.default = pkgs.mkShell {
             buildInputs = [
               self'.packages.helix
@@ -85,7 +89,7 @@
           formatter = pkgs.alejandra;
         };
 
-      devtools.pi.rpiv.enable = true;
+      devtools.pi.managedSettings.enable = true;
 
       flake = {
         homeManagerModules.pi = import ./pi/home-module.nix;
