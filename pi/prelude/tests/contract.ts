@@ -53,7 +53,7 @@ for (const action of ["list", "add", "update", "done", "clear"]) {
 const toolsWeb = readFileSync(join(preludeDir, "extensions/tools-web.ts"), "utf8");
 if (!toolsWeb.includes('name: "web_search"')) fail("tools-web.ts missing web_search tool registration");
 if (!toolsWeb.includes('name: "web_fetch"')) fail("tools-web.ts missing web_fetch tool registration");
-if (!toolsWeb.includes("BRAVE_API_KEY")) fail("tools-web.ts missing Brave key integration");
+if (!toolsWeb.includes("BRAVE_SEARCH_API_KEY")) fail("tools-web.ts missing Brave key integration");
 if (!toolsWeb.includes("ddgr")) fail("tools-web.ts missing ddgr fallback contract");
 if (!toolsWeb.includes("truncateBytes")) fail("tools-web.ts missing truncation helper contract");
 

@@ -167,7 +167,7 @@ Guidelines:
 - bounded output/truncation
 - URL citation in results
 - deterministic error messages
-- runtime dependency contract: optional `BRAVE_API_KEY`; `ddgr` and `curl` available in wrapped runtime PATH
+- runtime dependency contract: optional `BRAVE_SEARCH_API_KEY`; `ddgr` and `curl` available in wrapped runtime PATH
 
 ### Deferred
 - optional deep fetch backend (Crawl4AI) as pluggable v2

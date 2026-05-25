@@ -52,7 +52,7 @@ Check:
 
 ## 6) web tools UX
 
-- `web_search` with normal query (with and without `BRAVE_API_KEY`)
+- `web_search` with normal query (with and without `BRAVE_SEARCH_API_KEY`)
 - if possible, simulate Brave failure and confirm fallback to `ddgr`
 - `web_fetch` on known URL
 

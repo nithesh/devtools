@@ -33,7 +33,7 @@ export default function toolsWeb(pi: ExtensionAPI) {
   pi.registerTool({
     name: "web_search",
     label: "Web Search",
-    description: "Search the web for docs/news/pages. Uses Brave API when BRAVE_API_KEY is set, else ddgr.",
+    description: "Search the web for docs/news/pages. Uses Brave API when BRAVE_SEARCH_API_KEY is set, else ddgr.",
     parameters: WebSearchParams,
     promptSnippet: "Search the web and return concise cited results.",
 
@@ -47,7 +47,7 @@ export default function toolsWeb(pi: ExtensionAPI) {
       }
 
       const limit = Math.min(Math.max(Math.floor(params.limit ?? 5), 1), 10);
-      const braveKey = process.env.BRAVE_API_KEY?.trim();
+      const braveKey = process.env.BRAVE_SEARCH_API_KEY?.trim();
       const attempted: string[] = [];
       let lastError: string | null = null;
 
