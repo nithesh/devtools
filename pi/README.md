@@ -117,7 +117,7 @@ Import the flake module:
 # In your project's flake.nix
 imports = [ inputs.devtools.flakeModules.pi ];
 
-perSystem = { config, ... }: {
+perSystem = { config, pkgs, ... }: {
   devtools.pi = {
     enable = true;
 
@@ -143,10 +143,16 @@ perSystem = { config, ... }: {
 
     # Disable global extension discovery, only use explicit ones
     # noExtensions = true;
+
+    # Manage .pi/settings.json from Nix
+    managedSettings.enable = true;
   };
 
   devShells.default = pkgs.mkShell {
     packages = [ config.packages.pi ];
+    shellHook = ''
+      ${config.packages.pi-manage-settings}/bin/pi-manage-settings
+    '';
   };
 };
 ```
@@ -246,6 +252,7 @@ perSystem = { config, ... }: {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `piPackages` | `listOf package` | `[]` | Pi package derivations to include in generated `.pi/settings.json` |
+| `availablePackages` | `attrs` (read-only) | computed | Namespaced built-in Pi package set (e.g. `rpiv`, `whatsappPi`) |
 
 ### Built-in Pi package set
 
