@@ -41,9 +41,13 @@
           ...
         }:
         {
-          devtools.pi.packageExtensions = [
-            config.packages.rpiv-rpiv-web-tools
-          ];
+          devtools.pi = {
+            packageExtensions = [
+              config.packages.rpiv-rpiv-web-tools
+              config.packages.rpiv-rpiv-todo
+              config.packages.rpiv-rpiv-ask-user-question
+            ];
+          };
 
           devShells.default = pkgs.mkShell {
             buildInputs = [
@@ -82,8 +86,14 @@
           formatter = pkgs.alejandra;
         };
 
-      devtools.pi.managedSettings.enable = true;
-      devtools.pi.prelude.features.tools.web.enable = false;
+      devtools.pi = {
+        managedSettings.enable = true;
+        prelude.features.tools = {
+          web.enable = false;
+          todo.enable = false;
+          ask.enable = false;
+        };
+      };
 
       flake = {
         homeManagerModules.pi = import ./pi/home-module.nix;
