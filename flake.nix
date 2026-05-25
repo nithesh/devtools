@@ -26,8 +26,6 @@
         ./zed/module.nix
         ./zellij/module.nix
         ./pi/module.nix
-        ./pi/rpiv/module.nix
-        ./pi/prelude/module.nix
         ./agent-console/module.nix
       ];
 
@@ -46,6 +44,7 @@
               config.packages.rpiv-rpiv-web-tools
               config.packages.rpiv-rpiv-todo
               config.packages.rpiv-rpiv-ask-user-question
+              config.packages.whatsapp-pi
             ];
           };
 

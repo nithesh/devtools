@@ -4,6 +4,11 @@ let
   rootCfg = config.devtools.pi;
 in
 {
+  imports = [
+    ./rpiv/module.nix
+    ./whatsapp/module.nix
+    ./prelude/module.nix
+  ];
   options.perSystem = flake-parts-lib.mkPerSystemOption ({ ... }: {
     options.devtools.pi.packageExtensions = lib.mkOption {
       type = lib.types.listOf lib.types.package;
