@@ -6,6 +6,31 @@
   ...
 }: let
   cfg = config.programs.pi;
+  piPackageSet = import ./pi-packages.nix { inherit pkgs lib; };
+  preludePackage = pkgs.callPackage ./prelude/package.nix {
+    features = cfg.prelude.features;
+  };
+  wrapperExtensions =
+    (lib.optional cfg.prelude.enable preludePackage)
+    ++ cfg.extensions;
+  basePackage =
+    if cfg.package != null then cfg.package
+    else throw "programs.pi.package must be set to a pi-unwrapped package (for example inputs.devtools.packages.${pkgs.system}.pi-unwrapped).";
+  installedPackage =
+    if wrapperExtensions != [ ] then
+      pkgs.callPackage ./default.nix {
+        pi-unwrapped = basePackage;
+        extensions = wrapperExtensions;
+        runtimeBins = cfg.runtimeBins;
+      }
+    else
+      basePackage;
+  settingsPackages = (cfg.settings.packages or [ ]) ++ (map toString cfg.packages);
+  effectiveSettings =
+    cfg.settings
+    // lib.optionalAttrs (settingsPackages != [ ]) {
+      packages = settingsPackages;
+    };
 in {
   meta.maintainers = [];
 
@@ -13,20 +38,17 @@ in {
     enable = lib.mkEnableOption "Pi coding agent";
 
     package = lib.mkOption {
-      type = lib.types.package;
-      default = config.packages.pi-unwrapped or (import ../. {
-        inherit pkgs;
-        llm-agents-pi = pkgs.pi; # fallback
-      }).pi-unwrapped;
-      description = "Pi package to install";
+      type = lib.types.nullOr lib.types.package;
+      default = null;
+      description = "Base pi-unwrapped package to install or wrap.";
     };
 
     settings = lib.mkOption {
       type = lib.types.attrs;
       default = {};
       description = ''
-        Pi settings to write to ~/.config/pi/agent/settings.json.
-        See https://github.com/badlogic/pi-mono/blob/main/docs/settings.md
+        Pi settings baseline to merge into ~/.pi/agent/settings.json.
+        `programs.pi.packages` is appended to `settings.packages` automatically.
       '';
       example = lib.literalExpression ''
         {
@@ -39,6 +61,43 @@ in {
           };
         }
       '';
+    };
+
+    packages = lib.mkOption {
+      type = lib.types.listOf (lib.types.oneOf [ lib.types.package lib.types.path lib.types.str ]);
+      default = [];
+      description = "Pi package derivations/paths/sources to add to settings.packages.";
+    };
+
+    availablePackages = lib.mkOption {
+      type = lib.types.attrs;
+      readOnly = true;
+      default = piPackageSet;
+      description = "Namespaced Pi package set for Home Manager usage.";
+    };
+
+    extensions = lib.mkOption {
+      type = lib.types.listOf lib.types.path;
+      default = [];
+      description = "Additional extension paths loaded by the installed Pi wrapper.";
+    };
+
+    runtimeBins = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = [];
+      description = "Extra binaries to put on PATH for wrapper-loaded extensions.";
+    };
+
+    prelude = {
+      enable = lib.mkEnableOption "pi prelude package for the Home Manager installed wrapper";
+      features = {
+        mode.enable = lib.mkOption { type = lib.types.bool; default = true; };
+        status.enable = lib.mkOption { type = lib.types.bool; default = true; };
+        guardrails.enable = lib.mkOption { type = lib.types.bool; default = true; };
+        tools.ask.enable = lib.mkOption { type = lib.types.bool; default = true; };
+        tools.todo.enable = lib.mkOption { type = lib.types.bool; default = true; };
+        tools.web.enable = lib.mkOption { type = lib.types.bool; default = true; };
+      };
     };
 
     agentsMd = lib.mkOption {
@@ -61,27 +120,27 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = [cfg.package];
+    home.packages = [installedPackage];
 
     # Immutable HM baseline (activation script seeds/merges mutable settings.json from this)
-    home.file.".pi/agent/settings.hm-base.json" = lib.mkIf (cfg.settings != {}) {
-      source = pkgs.writeText "pi-settings-hm-base.json" (builtins.toJSON cfg.settings);
+    home.file.".pi/agent/settings.hm-base.json" = lib.mkIf (effectiveSettings != {}) {
+      source = pkgs.writeText "pi-settings-hm-base.json" (builtins.toJSON effectiveSettings);
     };
 
-    xdg.configFile."pi/agent/AGENTS.md" = lib.mkIf (cfg.agentsMd != null) {
+    home.file.".pi/agent/AGENTS.md" = lib.mkIf (cfg.agentsMd != null) {
       text = cfg.agentsMd;
     };
 
-    xdg.configFile."pi/agent/SYSTEM.md" = lib.mkIf (cfg.systemMd != null) {
+    home.file.".pi/agent/SYSTEM.md" = lib.mkIf (cfg.systemMd != null) {
       text = cfg.systemMd;
     };
 
-    xdg.configFile."pi/agent/APPEND_SYSTEM.md" = lib.mkIf (cfg.appendSystemMd != null) {
+    home.file.".pi/agent/APPEND_SYSTEM.md" = lib.mkIf (cfg.appendSystemMd != null) {
       text = cfg.appendSystemMd;
     };
 
     # Seed/merge mutable settings.json from HM baseline using deterministic JSON 3-way merge.
-    home.activation.managePiSettings = lib.mkIf (cfg.settings != {}) (
+    home.activation.managePiSettings = lib.mkIf (effectiveSettings != {}) (
       lib.hm.dag.entryAfter ["writeBoundary"] ''
         set -eu
 

@@ -36,25 +36,27 @@ const features = JSON.parse(process.env.PI_PRELUDE_FEATURES_JSON ?? "{}") as {
   toolsWeb?: boolean;
 };
 
-const requiredFiles = ["package.json"];
-if (features.mode ?? true) requiredFiles.push("extensions/mode.ts");
-if (features.status ?? true) requiredFiles.push("extensions/status.ts");
-if (features.guardrails ?? true) requiredFiles.push("extensions/guardrails.ts");
-if (features.toolsAsk ?? true) requiredFiles.push("extensions/tools-ask.ts");
-if (features.toolsTodo ?? true) requiredFiles.push("extensions/tools-todo.ts");
-if (features.toolsWeb ?? true) requiredFiles.push("extensions/tools-web.ts");
+const packageRoot = join(preludeDir, "pi-prelude");
+
+const requiredFiles = ["package.json", "pi-prelude/package.json"];
+if (features.mode ?? true) requiredFiles.push("pi-prelude/extensions/mode.ts");
+if (features.status ?? true) requiredFiles.push("pi-prelude/extensions/status.ts");
+if (features.guardrails ?? true) requiredFiles.push("pi-prelude/extensions/guardrails.ts");
+if (features.toolsAsk ?? true) requiredFiles.push("pi-prelude/extensions/tools-ask.ts");
+if (features.toolsTodo ?? true) requiredFiles.push("pi-prelude/extensions/tools-todo.ts");
+if (features.toolsWeb ?? true) requiredFiles.push("pi-prelude/extensions/tools-web.ts");
 
 for (const rel of requiredFiles) checkFile(join(preludeDir, rel));
 
 if (features.toolsAsk ?? true) {
-  const toolsAsk = readFileSync(join(preludeDir, "extensions/tools-ask.ts"), "utf8");
+  const toolsAsk = readFileSync(join(packageRoot, "extensions/tools-ask.ts"), "utf8");
   if (!toolsAsk.includes('name: "ask_user"')) fail("tools-ask.ts missing ask_user tool registration");
   if (!toolsAsk.includes("requires interactive mode")) fail("tools-ask.ts missing non-interactive error contract");
   if (!toolsAsk.includes("partial")) fail("tools-ask.ts missing partial-submit UX contract markers");
 }
 
 if (features.toolsTodo ?? true) {
-  const toolsTodo = readFileSync(join(preludeDir, "extensions/tools-todo.ts"), "utf8");
+  const toolsTodo = readFileSync(join(packageRoot, "extensions/tools-todo.ts"), "utf8");
   if (!toolsTodo.includes('name: "todo"')) fail("tools-todo.ts missing todo tool registration");
   for (const action of ["list", "add", "update", "done", "clear"]) {
     if (!toolsTodo.includes(`"${action}"`)) fail(`tools-todo.ts missing '${action}' action`);
@@ -62,7 +64,7 @@ if (features.toolsTodo ?? true) {
 }
 
 if (features.toolsWeb ?? true) {
-  const toolsWeb = readFileSync(join(preludeDir, "extensions/tools-web.ts"), "utf8");
+  const toolsWeb = readFileSync(join(packageRoot, "extensions/tools-web.ts"), "utf8");
   if (!toolsWeb.includes('name: "web_search"')) fail("tools-web.ts missing web_search tool registration");
   if (!toolsWeb.includes('name: "web_fetch"')) fail("tools-web.ts missing web_fetch tool registration");
   if (!toolsWeb.includes("BRAVE_SEARCH_API_KEY")) fail("tools-web.ts missing Brave key integration");
@@ -71,7 +73,7 @@ if (features.toolsWeb ?? true) {
 }
 
 if (features.guardrails ?? true) {
-  const guardrails = readFileSync(join(preludeDir, "extensions/guardrails.ts"), "utf8");
+  const guardrails = readFileSync(join(packageRoot, "extensions/guardrails.ts"), "utf8");
   if (!guardrails.includes('pi.on("tool_call"')) fail("guardrails.ts missing tool_call hook");
   if (!guardrails.includes('isToolCallEventType("read"')) fail("guardrails.ts missing read-path protection hook");
   for (const marker of ["protectedReadPatterns", "protectedWritePatterns", "/.env", "/.git/**", "node_modules", "rm -rf", "git reset --hard", "ctx.ui.confirm"]) {
@@ -80,7 +82,7 @@ if (features.guardrails ?? true) {
 }
 
 if (features.mode ?? true) {
-  const mode = readFileSync(join(preludeDir, "extensions/mode.ts"), "utf8");
+  const mode = readFileSync(join(packageRoot, "extensions/mode.ts"), "utf8");
   if (!mode.includes('registerCommand("mode"')) fail("mode.ts missing /mode command registration");
   for (const hotkey of ["ctrl+alt+u", "ctrl+alt+p", "ctrl+alt+r", "ctrl+alt+d"]) {
     if (!mode.includes(hotkey)) fail(`mode.ts missing '${hotkey}' hotkey contract`);

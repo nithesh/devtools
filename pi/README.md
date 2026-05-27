@@ -271,14 +271,50 @@ perSystem = { config, ... }: {
 
 ### Home Manager module (`programs.pi`)
 
+The Home Manager module has first-class package support; you do not need `pi-manage-settings` for global installs.
+
+```nix
+programs.pi = {
+  enable = true;
+  package = inputs.devtools.packages.${pkgs.system}.pi-unwrapped;
+
+  prelude.enable = true;
+  prelude.features.tools = {
+    web.enable = false;
+    todo.enable = false;
+    ask.enable = false;
+  };
+
+  packages = with config.programs.pi.availablePackages; [
+    rpiv."web-tools"
+    rpiv.todo
+    rpiv."ask-user-question"
+  ];
+
+  settings = {
+    defaultProvider = "openai-codex";
+    defaultModel = "gpt-5.3-codex";
+    theme = "catppuccin-macchiato";
+  };
+};
+```
+
+`programs.pi.packages` is appended to `settings.packages` in the HM-managed baseline and then merged into mutable `~/.pi/agent/settings.json` by the activation script.
+
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enable` | `bool` | `false` | Enable Pi installation |
-| `package` | `package` | `pi-unwrapped` | Pi package to install |
+| `package` | `nullOr package` | `null` | Base `pi-unwrapped` package to install/wrap |
 | `settings` | `attrs` | `{}` | Baseline settings.json content (mutable at runtime) |
-| `agentsMd` | `nullOr str` | `null` | Global AGENTS.md content (immutable) |
-| `systemMd` | `nullOr str` | `null` | Global SYSTEM.md content (immutable) |
-| `appendSystemMd` | `nullOr str` | `null` | Global APPEND_SYSTEM.md content (immutable) |
+| `packages` | `listOf (package\|path\|str)` | `[]` | Pi packages appended to `settings.packages` |
+| `availablePackages` | `attrs` (read-only) | computed | Namespaced built-in Pi package set |
+| `extensions` | `listOf path` | `[]` | Extra extension paths loaded by the installed wrapper |
+| `runtimeBins` | `listOf package` | `[]` | Extra binaries added to the wrapper PATH |
+| `prelude.enable` | `bool` | `false` | Load the packaged pi-prelude in the installed wrapper |
+| `prelude.features.*.enable` | `bool` | `true` | Include/exclude individual prelude extension files |
+| `agentsMd` | `nullOr str` | `null` | Global `~/.pi/agent/AGENTS.md` content |
+| `systemMd` | `nullOr str` | `null` | Global `~/.pi/agent/SYSTEM.md` content |
+| `appendSystemMd` | `nullOr str` | `null` | Global `~/.pi/agent/APPEND_SYSTEM.md` content |
 
 ## Notes
 

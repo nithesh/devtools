@@ -25,35 +25,14 @@ in
   config = {
     perSystem = { config, pkgs, ... }:
       let
-        disabledPreludeExtensions =
-          (lib.optional (!cfg.features.mode.enable) "mode.ts")
-          ++ (lib.optional (!cfg.features.status.enable) "status.ts")
-          ++ (lib.optional (!cfg.features.guardrails.enable) "guardrails.ts")
-          ++ (lib.optional (!cfg.features.tools.ask.enable) "tools-ask.ts")
-          ++ (lib.optional (!cfg.features.tools.todo.enable) "tools-todo.ts")
-          ++ (lib.optional (!cfg.features.tools.web.enable) "tools-web.ts");
+        preludePackage = pkgs.callPackage ./package.nix {
+          features = cfg.features;
+        };
 
-        preludePackage = pkgs.runCommand "pi-prelude-package" { } ''
-          mkdir -p "$out"
-          cp -R ${./.}/. "$out/"
-          chmod -R u+w "$out"
-          ${lib.concatMapStringsSep "\n" (file: "rm -f \"$out/extensions/${file}\"") disabledPreludeExtensions}
-        '';
-
-        preludeArgs = lib.concatStringsSep " " (
-          lib.filter (s: s != "") [
-            (if cfg.enable && cfg.features.mode.enable then "--extension \"$ROOT/pi/prelude/extensions/mode.ts\"" else "")
-            (if cfg.enable && cfg.features.status.enable then "--extension \"$ROOT/pi/prelude/extensions/status.ts\"" else "")
-            (if cfg.enable && cfg.features.guardrails.enable then "--extension \"$ROOT/pi/prelude/extensions/guardrails.ts\"" else "")
-            (if cfg.enable && cfg.features.tools.ask.enable then "--extension \"$ROOT/pi/prelude/extensions/tools-ask.ts\"" else "")
-            (if cfg.enable && cfg.features.tools.todo.enable then "--extension \"$ROOT/pi/prelude/extensions/tools-todo.ts\"" else "")
-            (if cfg.enable && cfg.features.tools.web.enable then "--extension \"$ROOT/pi/prelude/extensions/tools-web.ts\"" else "")
-          ]
-        );
+        preludeArgs = lib.optionalString cfg.enable "--extension ${preludePackage}";
 
         piDev = pkgs.writeShellScriptBin "pi" ''
           set -euo pipefail
-          ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
           exec ${config.packages.pi-unwrapped}/bin/pi ${preludeArgs} "$@"
         '';
 
@@ -65,6 +44,7 @@ in
       in
       {
         packages.pi-dev = piDev;
+        packages.pi-prelude-package = preludePackage;
       }
       // lib.optionalAttrs (cfg.enable && cfg.checks.enable) ({
         checks.pi-prelude-build = piWithPreludeForChecks;

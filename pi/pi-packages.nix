@@ -1,5 +1,19 @@
 { pkgs, lib }:
 let
+  mkPiPackage = { name, src, extensions ? [ "./${name}" ] }:
+    pkgs.runCommand "${name}-package" { } ''
+      mkdir -p "$out"
+      ln -s ${src} "$out/${name}"
+      cat > "$out/package.json" <<'EOF'
+      ${builtins.toJSON {
+        inherit name;
+        private = true;
+        keywords = [ "pi-package" ];
+        pi = { inherit extensions; };
+      }}
+      EOF
+    '';
+
   rpivPackageNames = [
     "rpiv-advisor"
     "rpiv-args"
@@ -30,12 +44,17 @@ let
   };
 
   rpiv = lib.listToAttrs (map (
-    name:
+    packageName:
+    let
+      name = lib.removePrefix "rpiv-" packageName;
+      cleanName = packageName;
+    in
     {
-      name = lib.removePrefix "rpiv-" name;
-      value = pkgs.symlinkJoin {
-        name = "rpiv-${name}-package";
-        paths = [ "${rpivMono}/lib/node_modules/rpiv-mono/packages/${name}" ];
+      inherit name;
+      value = mkPiPackage {
+        name = cleanName;
+        src = "${rpivMono}/lib/node_modules/rpiv-mono/packages/${packageName}";
+        extensions = [ "./${cleanName}/index.ts" ];
       };
     }
   ) rpivPackageNames);
@@ -56,9 +75,10 @@ let
     dontNpmBuild = true;
   };
 
-  whatsapp = pkgs.symlinkJoin {
-    name = "whatsapp-pi-package";
-    paths = [ "${whatsappSrc}/lib/node_modules/whatsapp-pi" ];
+  whatsapp = mkPiPackage {
+    name = "whatsapp-pi";
+    src = "${whatsappSrc}/lib/node_modules/whatsapp-pi";
+    extensions = [ "./whatsapp-pi/whatsapp-pi.ts" ];
   };
 in
 {

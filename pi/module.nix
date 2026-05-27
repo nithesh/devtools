@@ -90,12 +90,7 @@ in
           else throw "devtools.flakeModules.pi: unable to resolve base Pi package. Set perSystem.devtools.pi.basePackage (recommended).";
 
         preludeExtensions =
-          (lib.optional (rootCfg.prelude.enable && rootCfg.prelude.features.mode.enable) ./prelude/extensions/mode.ts)
-          ++ (lib.optional (rootCfg.prelude.enable && rootCfg.prelude.features.status.enable) ./prelude/extensions/status.ts)
-          ++ (lib.optional (rootCfg.prelude.enable && rootCfg.prelude.features.guardrails.enable) ./prelude/extensions/guardrails.ts)
-          ++ (lib.optional (rootCfg.prelude.enable && rootCfg.prelude.features.tools.ask.enable) ./prelude/extensions/tools-ask.ts)
-          ++ (lib.optional (rootCfg.prelude.enable && rootCfg.prelude.features.tools.todo.enable) ./prelude/extensions/tools-todo.ts)
-          ++ (lib.optional (rootCfg.prelude.enable && rootCfg.prelude.features.tools.web.enable) ./prelude/extensions/tools-web.ts);
+          lib.optional rootCfg.prelude.enable config.packages.pi-prelude-package;
 
         cfg = rootCfg // {
           package = resolvedBasePackage;
