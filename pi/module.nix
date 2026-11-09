@@ -134,7 +134,7 @@ in
 
         packages = {
           pi-unwrapped = resolvedBasePackage;
-          pi = if cfg.enable then pkgs.callPackage ./default.nix ({ pi-unwrapped = resolvedBasePackage; } // wrapperArgs) else resolvedBasePackage;
+          pi = if cfg.enable then import ./default.nix ({ inherit pkgs; pi-unwrapped = resolvedBasePackage; } // wrapperArgs) else resolvedBasePackage;
           pi-manage-settings = manageSettingsScript;
         };
       };

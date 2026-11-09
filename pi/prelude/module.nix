@@ -36,7 +36,8 @@ in
           exec ${config.packages.pi-unwrapped}/bin/pi ${preludeArgs} "$@"
         '';
 
-        piWithPreludeForChecks = pkgs.callPackage ../default.nix {
+        piWithPreludeForChecks = import ../default.nix {
+          inherit pkgs;
           pi-unwrapped = config.packages.pi-unwrapped;
           extensions = [ preludePackage ];
           runtimeBins = [ pkgs.ddgr pkgs.curl ];

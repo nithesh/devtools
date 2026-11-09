@@ -18,7 +18,9 @@
     else throw "programs.pi.package must be set to a pi-unwrapped package (for example inputs.devtools.packages.${pkgs.system}.pi-unwrapped).";
   installedPackage =
     if wrapperExtensions != [ ] then
-      pkgs.callPackage ./default.nix {
+      # Wrapper options are not Nixpkgs dependencies (e.g. pkgs.skills).
+      import ./default.nix {
+        inherit pkgs;
         pi-unwrapped = basePackage;
         extensions = wrapperExtensions;
         runtimeBins = cfg.runtimeBins;
