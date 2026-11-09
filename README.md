@@ -55,6 +55,27 @@ Customizable AI coding harness with support for extensions, skills, themes, and 
 - Global AGENTS.md support
 - Home Manager module for declarative configuration
 
+### Amp
+
+Amp is exposed as `packages.<system>.amp` and included in the development shell.
+The package comes directly from the pinned `llm-agents.nix` input; this repository
+does not duplicate its packaging, release hashes, or updater.
+
+```bash
+nix run .#amp
+nix build .#checks.x86_64-linux.amp-runner-support
+```
+
+The capability check verifies the CLI flags used by remote runners. Consumers can
+install `devtools.packages.<system>.amp` in a NixOS system or Home Manager profile;
+host-specific runner services and credentials remain outside this repository.
+
+To refresh Amp and the other upstream agent packages, run `nix flake update
+llm-agents`, then build the Amp package and run the capability check. Review and
+commit the lockfile change. Downstream consumers advance their own locked devtools
+revision after that change is merged. Ordinary builds never resolve a floating
+latest release.
+
 ## Requirements
 
 - [Nix](https://nixos.org/download.html) with flakes enabled
@@ -82,6 +103,7 @@ This provides:
 - `hx` - Helix editor
 - `zed` - Zed editor
 - `pi` - AI coding agent
+- `amp` - Amp CLI, including remote runner support
 - `nil` - Nix language server
 - `alejandra` - Nix formatter
 

@@ -39,6 +39,8 @@
           ...
         }:
         {
+          packages.amp = inputs'.llm-agents.packages.amp;
+
           devtools.pi = {
             piPackages = with config.devtools.pi.availablePackages; [
               rpiv."web-tools"
@@ -56,6 +58,7 @@
               self'.packages.zellij
               self'.packages.agent-console
               self'.packages.pi-dev
+              self'.packages.amp
               inputs'.nil.packages.default
               self'.formatter
             ];
@@ -65,6 +68,18 @@
           };
 
           checks = {
+            amp-runner-support = pkgs.runCommand "amp-runner-support" {
+              nativeBuildInputs = [ self'.packages.amp ];
+            } ''
+              export HOME="$TMPDIR/amp-home"
+              mkdir -p "$HOME"
+              amp --help > help.txt 2>&1
+              for flag in --no-tui --runner-id --remote-control-terminal; do
+                grep -Fq -- "$flag" help.txt
+              done
+              touch "$out"
+            '';
+
             agent-console-behavior = pkgs.runCommand "agent-console-behavior-test" {
               nativeBuildInputs = [ pkgs.bash pkgs.gnugrep pkgs.coreutils ];
               AGENT_CONSOLE_BIN = "${self'.packages.agent-console}/bin/agent-console";
